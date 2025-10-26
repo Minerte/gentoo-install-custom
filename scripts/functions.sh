@@ -4,10 +4,6 @@ source "$GENTOO_INSTALL_REPO_DIR/scripts/protection.sh" || exit 1
 function preprocess_config() {
 	disk_configuration # in gentoo.conf
 
-	# Check encryption key if used
-	[[ $USED_ENCRYPTION == "true" ]] \
-		&& check_encryption_key
-
 	check_config
 }
 
@@ -15,12 +11,11 @@ function check_config() {
 	[[ $KEYMAP =~ ^[0-9A-Za-z-]*$ ]] \
 		|| die "KEYMAP contains invalid characters"
 
-	if [[ "$SYSTEMD" == "true" ]]; then
-		[[ "$STAGE3_BASENAME" == *systemd* ]] \
-			|| die "Using systemd requires a systemd stage3 archive!"
-	else
+	if [[ "$STAGE3_BASENAME" != *systemd* ]]; then
 		[[ "$STAGE3_BASENAME" != *systemd* ]] \
 			|| die "Using OpenRC requires a non-systemd stage3 archive!"
+	else
+			die "Failed"
 	fi
 
 	# Check hostname per RFC1123
@@ -43,7 +38,7 @@ function check_config() {
 	if [[ -v "DISK_ID_EFI" ]]; then
 		IS_EFI=true
 	else
-		IS_EFI=false
+		die
 	fi
 }
 
@@ -156,6 +151,89 @@ function summarize_disk_actions() {
 	elog ────────────────────────────────────────────────────────────────────────────────
 	print_summary_tree __root__
 	elog ────────────────────────────────────────────────────────────────────────────────
+}
+
+function print_summary_tree() {
+	local root="$1"
+	local depth="$((depth + 1))"
+	local has_children=false
+
+	if [[ -v "summary_tree[$root]" ]]; then
+		local children="${summary_tree[$root]}"
+		has_children=true
+		summary_depth_continues[$depth]=true
+	else
+		summary_depth_continues[$depth]=false
+	fi
+
+	if [[ $root != __root__ ]]; then
+		print_summary_tree_entry "$root"
+	fi
+
+	if [[ $has_children == "true" ]]; then
+		local count
+		count="$(tr ';' '\n' <<< "$children" | grep -c '\S')" \
+			|| count=0
+		local idx=0
+		# Splitting is intentional here
+		# shellcheck disable=SC2086
+		for id in ${children//';'/ }; do
+			idx="$((idx + 1))"
+			[[ $idx == "$count" ]] \
+				&& summary_depth_continues[$depth]=false
+			print_summary_tree "$id"
+			# separate blocks by newline
+			[[ ${summary_depth_continues[0]} == "true" ]] && [[ $depth == 1 ]] && [[ $idx == "$count" ]] \
+				&& elog
+		done
+	fi
+}
+
+function print_summary_tree_entry() {
+	local indent_chars=""
+	local indent="0"
+	local d="1"
+	local maxd="$((depth - 1))"
+	while [[ $d -lt $maxd ]]; do
+		if [[ ${summary_depth_continues[$d]} == "true" ]]; then
+			indent_chars+='│ '
+		else
+			indent_chars+='  '
+		fi
+		indent=$((indent + 2))
+		d="$((d + 1))"
+	done
+	if [[ $maxd -gt 0 ]]; then
+		if [[ ${summary_depth_continues[$maxd]} == "true" ]]; then
+			indent_chars+='├─'
+		else
+			indent_chars+='└─'
+		fi
+		indent=$((indent + 2))
+	fi
+
+	local name="${summary_name[$root]}"
+	local hint="${summary_hint[$root]}"
+	local desc="${summary_desc[$root]}"
+	local ptr="${summary_ptr[$root]}"
+	local id_name="[2m[m"
+	if [[ $root != __* ]]; then
+		if [[ $root == _* ]]; then
+			id_name="[2m${root:1}[m"
+		else
+			id_name="[2m${root}[m"
+		fi
+	fi
+
+	local align=0
+	if [[ $indent -lt 33 ]]; then
+		align="$((33 - indent))"
+	fi
+
+	elog "$indent_chars$(printf "%-${align}s %-47s %s" \
+		"$name [2m$hint[m" \
+		"$id_name $ptr" \
+		"$desc")"
 }
 
 function apply_disk_actions() {
