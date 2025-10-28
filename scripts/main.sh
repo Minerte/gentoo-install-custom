@@ -17,7 +17,6 @@ function main_install() {
 function install_stage3() {
 	prepare_installation_environment # is a Function in file "Functions.sh"
 	apply_disk_configuration # comming from functions.sh
-	setup_gpg_keyfile # comming from functions.sh
 	download_stage3 # Comming from functions.sh
 	extract_stage3 # Comming from functions.sh
 }
