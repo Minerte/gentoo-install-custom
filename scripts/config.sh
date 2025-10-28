@@ -62,9 +62,10 @@ function create_boot_storage_disk_layout() {
 	create_partition new_id=part_gpg_storage id=gpt_boot size=remaining type=linux
 
 	# Optionally encrypt the GPG storage partition
+	# IMPORTANT: Uses passphrase-based LUKS (not GPG keyfile) to avoid circular dependency
 	local gpg_storage_id="part_gpg_storage"
 	if [[ "$use_luks" == "true" ]]; then
-		create_luks new_id=part_luks_gpg_storage name="gpg_storage" id=part_gpg_storage
+		create_luks_passphrase new_id=part_luks_gpg_storage name="gpg_storage" id=part_gpg_storage
 		gpg_storage_id="part_luks_gpg_storage"
 	fi
 
@@ -76,7 +77,7 @@ function create_boot_storage_disk_layout() {
 	if [[ $type == "efi" ]]; then
 		DISK_ID_EFI="part_efi"
 	else
-		DISK_ID_BIOS="part_efi"
+		die "Cant find efi id"
 	fi
 	DISK_ID_GPG_STORAGE="$gpg_storage_id"
 }
@@ -235,6 +236,27 @@ function create_luks() {
 	create_resolve_entry "$new_id" luks "$name" # from Utils.sh
 	DISK_DRACUT_CMDLINE+=("rd.luks.uuid=$uuid")
 	DISK_ACTIONS+=("action=create_luks" "$@" ";")
+}
+
+function create_luks_passphrase() {
+	USED_LUKS=true
+	USED_ENCRYPTION=true
+
+	local known_arguments=('+new_id' '+name' '+device|id')
+	local extra_arguments=()
+	declare -A arguments; parse_arguments "$@"
+
+	only_one_of device id
+	create_new_id new_id
+	[[ -v arguments[id] ]] \
+		&& verify_existing_id id
+
+	local new_id="${arguments[new_id]}"
+	local name="${arguments[name]}"
+	local uuid="${DISK_ID_TO_UUID[$new_id]}"
+	create_resolve_entry "$new_id" luks "$name"
+	DISK_DRACUT_CMDLINE+=("rd.luks.uuid=$uuid")
+	DISK_ACTIONS+=("action=create_luks_passphrase" "$@" ";")
 }
 
 function format() {
