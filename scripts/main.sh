@@ -79,11 +79,8 @@ EOF
 	einfo "Generating ssh host keys"
 	try ssh-keygen -A
 
-	# Install authorized_keys before dracut, which might need them for remote unlocking.
-	install_authorized_keys #  from same file
-
-	einfo "Enabling dracut USE flag on sys-kernel/installkernel"
-	echo "sys-kernel/installkernel dracut" > /etc/portage/package.use/installkernel \
+	einfo "Enabling urgd and efistub USE flag on sys-kernel/installkernel"
+	echo "sys-kernel/installkernel urgd efistub" > /etc/portage/package.use/installkernel \
 		|| die "Could not write /etc/portage/package.use/installkernel"
 
 	# Install required programs and kernel now, in order to
@@ -194,51 +191,26 @@ function configure_base_system() {
 	locale-gen \
 		|| die "Could not generate locales"
 
-	if [[ $SYSTEMD == "true" ]]; then
-		einfo "Setting machine-id"
-		systemd-machine-id-setup \
-			|| die "Could not setup systemd machine id"
+	# Set hostname
+	einfo "Selecting hostname"
+	sed -i "/hostname=/c\\hostname=\"$HOSTNAME\"" /etc/conf.d/hostname \
+		|| die "Could not sed replace in /etc/conf.d/hostname"
 
-		# Set hostname
-		einfo "Selecting hostname"
-		echo "$HOSTNAME" > /etc/hostname \
-			|| die "Could not write /etc/hostname"
+	einfo "Selecting timezone"
+	echo "$TIMEZONE" > /etc/timezone \
+		|| die "Could not write /etc/timezone"
+	chmod 644 /etc/timezone \
+		|| die "Could not set correct permissions for /etc/timezone"
+	try emerge -v --config sys-libs/timezone-data
 
-		# Set keymap
-		einfo "Selecting keymap"
-		echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf \
-			|| die "Could not write /etc/vconsole.conf"
+	# Set keymap
+	einfo "Selecting keymap"
+	sed -i "/keymap=/c\\keymap=\"$KEYMAP\"" /etc/conf.d/keymaps \
+		|| die "Could not sed replace in /etc/conf.d/keymaps"
 
-		# Set locale
-		einfo "Selecting locale"
-		echo "LANG=$LOCALE" > /etc/locale.conf \
-			|| die "Could not write /etc/locale.conf"
-
-		einfo "Selecting timezone"
-		ln -sfn "../usr/share/zoneinfo/$TIMEZONE" /etc/localtime \
-			|| die "Could not change /etc/localtime link"
-	else
-		# Set hostname
-		einfo "Selecting hostname"
-		sed -i "/hostname=/c\\hostname=\"$HOSTNAME\"" /etc/conf.d/hostname \
-			|| die "Could not sed replace in /etc/conf.d/hostname"
-
-		einfo "Selecting timezone"
-		echo "$TIMEZONE" > /etc/timezone \
-			|| die "Could not write /etc/timezone"
-		chmod 644 /etc/timezone \
-			|| die "Could not set correct permissions for /etc/timezone"
-		try emerge -v --config sys-libs/timezone-data
-
-		# Set keymap
-		einfo "Selecting keymap"
-		sed -i "/keymap=/c\\keymap=\"$KEYMAP\"" /etc/conf.d/keymaps \
-			|| die "Could not sed replace in /etc/conf.d/keymaps"
-
-		# Set locale
-		einfo "Selecting locale"
-		try eselect locale set "$LOCALE"
-	fi
+	# Set locale
+	einfo "Selecting locale"
+	try eselect locale set "$LOCALE"
 
 	# Update environment
 	env_update # From functions.sh
@@ -271,18 +243,6 @@ function configure_portage() {
 
 	chmod 644 /etc/portage/make.conf \
 		|| die "Could not chmod 644 /etc/portage/make.conf"
-}
-
-function install_authorized_keys() {
-	mkdir_or_die 0700 "/root/"
-	mkdir_or_die 0700 "/root/.ssh"
-
-	if [[ -n "$ROOT_SSH_AUTHORIZED_KEYS" ]]; then
-		einfo "Adding authorized keys for root"
-		touch_or_die 0600 "/root/.ssh/authorized_keys"
-		echo "$ROOT_SSH_AUTHORIZED_KEYS" > "/root/.ssh/authorized_keys" \
-			|| die "Could not add ssh key to /root/.ssh/authorized_keys"
-	fi
 }
 
 function install_kernel() {
@@ -427,20 +387,6 @@ EOF
 		mkdir -p /etc/ugrd/gpg
         cp "$gpg_mount/luks-key.gpg" /etc/ugrd/gpg/
 
-	fi
-
-	# Add systemd SSH support if needed
-	if [[ $SYSTEMD == "true" && $SYSTEMD_INITRAMFS_SSHD == "true" ]]; then
-		ugrd_modules+=("network" "ssh")
-		cat >> "$config_file" <<EOF
-[network]
-enabled = true
-
-[ssh]
-enabled = true
-# SSH keys should be configured in /etc/ugrd/ssh/
-
-EOF
 	fi
 
 	# Generate initramfs with ugRD

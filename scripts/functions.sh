@@ -451,6 +451,7 @@ function disk_create_luks_with_passphrase() {
 }
 
 function disk_create_luks_with_gpg() {
+	export GPG_TTY=$(tty)
 	local new_id="${arguments[new_id]}"
 	local name="${arguments[name]}"
 	if [[ ${disk_action_summarize_only-false} == "true" ]]; then
@@ -485,7 +486,7 @@ function disk_create_luks_with_gpg() {
 
 	# Generate random key and encrypt it with GPG
 	# Using 8MB (8388608 bytes) of random data for strong key
-	dd if=/dev/urandom bs=8388608 count=1 2>/dev/null \
+	dd if=/dev/urandom bs=8388608 count=1 status=none \
 		| gpg --symmetric --cipher-algo AES256 --output "$keyfile" \
 		|| die "Could not generate GPG encrypted keyfile"
 	
