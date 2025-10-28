@@ -25,8 +25,8 @@ function check_config() {
 
 	[[ -v "DISK_ID_ROOT" && -n $DISK_ID_ROOT ]] \
 		|| die "You must assign DISK_ID_ROOT"
-	[[ -v "DISK_ID_EFI" && -n $DISK_ID_EFI ]] || [[ -v "DISK_ID_BIOS" && -n $DISK_ID_BIOS ]] \
-		|| die "You must assign DISK_ID_EFI or DISK_ID_BIOS"
+	[[ -v "DISK_ID_EFI" && -n $DISK_ID_EFI ]] \
+		|| die "You must assign DISK_ID_EFI"
 
 	[[ -v "DISK_ID_EFI" ]] && [[ ! -v "DISK_ID_TO_UUID[$DISK_ID_EFI]" ]] \
 		&& die "Missing uuid for DISK_ID_EFI, have you made sure it is used?"
@@ -36,7 +36,7 @@ function check_config() {
 		&& die "Missing uuid for DISK_ID_ROOT, have you made sure it is used?"
 
 	if [[ -v "DISK_ID_EFI" ]]; then
-		IS_EFI=true
+		IS_EFI=true # Taken from main
 	else
 		die
 	fi
@@ -47,16 +47,6 @@ function gentoo_umount() {
 		einfo "Unmounting root filesystem"
 		umount -R -l "$ROOT_MOUNTPOINT" \
 			|| die "Could not unmount filesystems"
-	fi
-}
-
-function umount_gpg_storage() {
-	local gpg_mount="$TMP_DIR/gpg_storage"
-	
-	if mountpoint -q -- "$gpg_mount"; then
-		einfo "Unmounting GPG storage partition"
-		umount "$gpg_mount" \
-			|| die "Could not unmount GPG storage partition"
 	fi
 }
 
@@ -399,7 +389,7 @@ function disk_create_luks_with_gpg() {
 	local device_desc=""
 	if [[ -v arguments[id] ]]; then
 		device="$(resolve_device_by_id "${arguments[id]}")"
-		device_desc="$device ($id)"
+		device_desc="$device ($new_id)"
 	else
 		device="${arguments[device]}"
 		device_desc="$device"
@@ -408,21 +398,34 @@ function disk_create_luks_with_gpg() {
 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
 
 	einfo "Creating luks ($new_id) on $device_desc using GPG keyfile"
+
+	# Create keys directory if it doesn't exist
+	mkdir -p /mnt/keys \
+		|| die "Could not create keys directory"
+
+	# Generate a unique keyfile name based on the mapper name
+	local keyfile="/mnt/keys/${name}-KEY.gpg"
+
+	# Generate random key and encrypt it with GPG
+	# Using 8MB (8388608 bytes) of random data for strong key
+	dd if=/dev/urandom bs=8388608 count=1 2>/dev/null \
+		| gpg --symmetric --cipher-algo AES256 --output "$keyfile" \
+		|| die "Could not generate GPG encrypted keyfile"
 	
-	# Get the encryption key from GPG keyfile
-	local encryption_key
-	encryption_key="$(read_gpg_keyfile)" \
-		|| die "Could not read GPG keyfile"
-	
-	cryptsetup luksFormat \
+	einfo "Generated GPG encrypted keyfile: $keyfile"
+
+	# Use the GPG keyfile to format LUKS partition
+	# Pipe decrypted key directly to cryptsetup (never stored unencrypted on disk)
+	gpg --batch --yes --decrypt "$keyfile" \
+		| cryptsetup luksFormat \
 			--type luks2 \
 			--uuid "$uuid" \
-			--key-file <(echo -n "$encryption_key") \
+			--key-file=- \
 			--cipher aes-xts-plain64 \
+			--key-size 512 \
 			--hash sha512 \
 			--pbkdf argon2id \
 			--iter-time 4000 \
-			--key-size 512 \
 			--batch-mode \
 			"$device" \
 		|| die "Could not create luks on $device_desc"
@@ -430,7 +433,7 @@ function disk_create_luks_with_gpg() {
 	mkdir -p "$LUKS_HEADER_BACKUP_DIR" \
 		|| die "Could not create luks header backup dir '$LUKS_HEADER_BACKUP_DIR'"
 	
-	local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-$id-${uuid,,}.img"
+	local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-${new_id}-${uuid,,}.img"
 	[[ ! -e $header_file ]] \
 		|| rm "$header_file" \
 		|| die "Could not remove old luks header backup file '$header_file'"
@@ -438,11 +441,15 @@ function disk_create_luks_with_gpg() {
 	cryptsetup luksHeaderBackup "$device" \
 			--header-backup-file "$header_file" \
 		|| die "Could not backup luks header on $device_desc"
-	
-	cryptsetup open --type luks2 \
-			--key-file <(echo -n "$encryption_key") \
+
+	# Open the LUKS device using the GPG keyfile
+	gpg --batch --yes --decrypt "$keyfile" \
+		| cryptsetup open --type luks2 \
 			"$device" "$name" \
+			--key-file=- \
 		|| die "Could not open luks encrypted device $device_desc"
+
+	einfo "LUKS device $name created and opened successfully"
 }
 
 function disk_create_dummy() {
@@ -677,88 +684,15 @@ function mount_root() {
 	fi
 }
 
-function mount_gpg_storage() {
-	# Mount point for GPG storage partition (BOOT2 - ext4 formatted)
-	local gpg_mount="$TMP_DIR/gpg_storage"
-	
-	if [[ ! -v DISK_ID_GPG_STORAGE ]]; then
-		die "DISK_ID_GPG_STORAGE is not set. Did you use create_boot_storage_disk_layout?"
-	fi
+function mount_efivars() {
+	# Skip if already mounted
+	mountpoint -q -- "/sys/firmware/efi/efivars" \
+		&& return
 
-	# Check if already mounted
-	if mountpoint -q -- "$gpg_mount"; then
-		echo "$gpg_mount"
-		return 0
-	fi
-
-	# Mount the GPG storage partition (ext4 formatted)
-	einfo "Mounting GPG storage partition (BOOT2, ext4) to $gpg_mount"
-	mount_by_id "$DISK_ID_GPG_STORAGE" "$gpg_mount"
-	
-	echo "$gpg_mount"
-}
-
-function mount_efi_partition() {
-	# Mount the EFI partition (BOOT1 - FAT32/vfat formatted) for bootloader installation
-	local efi_mount="$ROOT_MOUNTPOINT/boot"
-	
-	if [[ ! -v DISK_ID_EFI ]]; then
-		die "DISK_ID_EFI is not set"
-	fi
-
-	# Check if already mounted
-	if mountpoint -q -- "$efi_mount"; then
-		return 0
-	fi
-
-	# Mount the EFI partition (FAT32 formatted, BOOT1)
-	einfo "Mounting EFI partition (BOOT1, vfat/FAT32) to $efi_mount"
-	mount_by_id "$DISK_ID_EFI" "$efi_mount"
-}
-
-function read_gpg_keyfile() {
-	local gpg_mount
-	gpg_mount="$(mount_gpg_storage)"
-	
-	local keyfile="$gpg_mount/luks-key.gpg"
-	
-	if [[ ! -f "$keyfile" ]]; then
-		die "GPG keyfile not found at $keyfile"
-	fi
-
-	# Decrypt the GPG keyfile and return the key
-	# This assumes you have a GPG-encrypted file containing your LUKS key
-	gpg --decrypt "$keyfile" 2>/dev/null \
-		|| die "Could not decrypt GPG keyfile"
-}
-
-function setup_gpg_keyfile() {
-	local gpg_mount
-	gpg_mount="$(mount_gpg_storage)"
-	
-	local keyfile="$gpg_mount/luks-key.gpg"
-	
-	if [[ -f "$keyfile" ]]; then
-		ewarn "GPG keyfile already exists at $keyfile"
-		ask "Do you want to overwrite it?" || return 0
-	fi
-
-	einfo "Creating GPG-encrypted keyfile for LUKS"
-	einfo "GPG storage is mounted at: $gpg_mount (BOOT2, ext4 formatted)"
-	einfo "The script has full read/write access to this partition"
-	
-	# Generate a random key and encrypt it with GPG
-	# You'll need to have GPG keys set up beforehand
-	dd if=/dev/urandom bs=512 count=1 2>/dev/null \
-		| gpg --encrypt --armor --recipient "$GPG_KEY_ID" \
-		> "$keyfile" \
-		|| die "Could not create GPG-encrypted keyfile"
-	
-	chmod 600 "$keyfile" \
-		|| die "Could not set permissions on GPG keyfile"
-	
-	einfo "GPG keyfile created at $keyfile"
-	einfo "You can read/write additional files to $gpg_mount while it's mounted"
+	# Mount efivars
+	einfo "Mounting efivars"
+	mount -t efivarfs efivarfs "/sys/firmware/efi/efivars" \
+		|| die "Could not mount efivarfs"
 }
 
 function mount_by_id() {

@@ -9,9 +9,9 @@ source "$GENTOO_INSTALL_REPO_DIR/scripts/protection.sh" || exit 1
 # must reside in /tmp to allow the chrooted system to access the files
 TMP_DIR="/tmp/gentoo-install"
 # Mountpoint for the new system
-ROOT_MOUNTPOINT="$TMP_DIR/root"
+ROOT_MOUNTPOINT="$TMP_DIR/root" # Varible from con TMP_DIR and uses over main.sh and functions.sh
 # Mountpoint for the script files for access from chroot
-GENTOO_INSTALL_REPO_BIND="$TMP_DIR/bind"
+GENTOO_INSTALL_REPO_BIND="$TMP_DIR/bind" #Varible uses over main.sh and functions.sh
 # Mountpoint for the script files for access from chroot
 UUID_STORAGE_DIR="$TMP_DIR/uuids"
 # Backup dir for luks headers
@@ -104,20 +104,27 @@ function create_gpg_disk_layout() {
 	create_partition new_id=part_root id=gpt_root size=remaining type=linux
 
 	# Optionally encrypt the root partition
+	local swap_id="part_swap"
 	local root_id="part_root"
+
 	if [[ "$use_luks" == "true" ]]; then
+		# Encrypt SWAP partition with GPG keyfile
+		create_luks new_id=part_luks_swap name="cryptswap" id=part_swap
+		swap_id="part_luks_swap"
+
+		# Encrypt ROOT partition with GPG keyfile
 		create_luks new_id=part_luks_root name="root" id=part_root
 		root_id="part_luks_root"
 	fi
 
 	# Format the partitions
 	[[ $size_swap != "false" ]] \
-		&& format id=part_swap type=swap label=swap
+		&& format id="$swap_id" type=swap label=swap
 	format id="$root_id" type="$root_fs" label=root
 
 	# Set global variables for the installation
 	[[ $size_swap != "false" ]] \
-		&& DISK_ID_SWAP=part_swap
+		&& DISK_ID_SWAP="$swap_id"
 	DISK_ID_ROOT="$root_id"
 
 	# Set filesystem type and mount options
