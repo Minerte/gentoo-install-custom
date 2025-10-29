@@ -63,7 +63,10 @@ function main_install_gentoo_in_chroot() {
 
 	# Install required programs and kernel now, in order to
 	# prevent emerging module before an imminent kernel upgrade
-	try emerge --verbose sys-kernel/ugrd sys-kernel/gentoo-kernel-sources app-arch/zstd
+	try emerge --verbose sys-kernel/ugrd sys-kernel/gentoo-sources app-arch/zstd
+
+	einfo "Installing extra tools for kernel config"
+	try emerge --ask sys-apps/pciutils
 
 	# Install cryptsetup if we used LUKS
 	if [[ $USED_LUKS == "true" ]]; then
@@ -163,8 +166,27 @@ function configure_portage() {
 }
 
 function install_kernel() {
-	# Install vanilla kernel
-	einfo "Installing vanilla kernel and related tools"
+	einfo "Avalible kernel version: (from gentoo-sources)"
+	try eselect kernel list
+	local kernel_choice
+	read -p "Enter the number of the kernel to use: " kernel_choice
+	if ! [[ "$kernel_choice" =~ ^[0-9]+$ ]]; then
+		die "Invalid input. Please enter a number."
+	fi 
+	try eselect kernel set "$kernel_choice"
+
+	einfo "Compiling kernel with make menuconfig (for manual edits)"
+	cd /usr/src/linux || die "Could not cd into /usr/src/linux"
+	local config_dist
+	read -p "Do you want to use make defconfig? For easier setup later. y/n: " config_dist
+	if [[ "$config_dist" == y ]]; then
+		try make defconfig
+	fi
+	try make menuconfig
+	try make -j$(nproc)
+	try make modules_install
+	try make install
+
 	install_kernel_efi
 
 	einfo "Installing linux-firmware"
