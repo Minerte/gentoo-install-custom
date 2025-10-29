@@ -224,23 +224,6 @@ function configure_portage() {
 	touch_or_die 0644 "/etc/portage/package.keywords/zz-autounmask"
 	touch_or_die 0644 "/etc/portage/package.license"
 
-	if [[ $SELECT_MIRRORS == "true" ]]; then
-		einfo "Temporarily installing mirrorselect"
-		try emerge --verbose --oneshot app-portage/mirrorselect
-
-		einfo "Selecting fastest portage mirrors"
-		mirrorselect_params=("-s" "4" "-b" "10")
-		[[ $SELECT_MIRRORS_LARGE_FILE == "true" ]] \
-			&& mirrorselect_params+=("-D")
-		try mirrorselect "${mirrorselect_params[@]}"
-	fi
-
-	if [[ $ENABLE_BINPKG == "true" ]]; then
-		echo 'FEATURES="getbinpkg binpkg-request-signature"' >> /etc/portage/make.conf
-		getuto
-		chmod 644 /etc/portage/gnupg/pubring.kbx
-	fi
-
 	chmod 644 /etc/portage/make.conf \
 		|| die "Could not chmod 644 /etc/portage/make.conf"
 }
@@ -295,32 +278,14 @@ function install_kernel_efi() {
 
 	# Identify the parent block device and create EFI boot entry
 	local gptdev
-	if mdadm --detail --scan "$efipartdev" | grep -qE "^ARRAY $efipartdev " && [[ "$efipartdev" =~ ^/dev/md[0-9]+$ ]]; then
-		# RAID 1 case: Create EFI boot entries for each RAID member
-		local raid_members
-		raid_members=($(mdadm --detail "$efipartdev" | sed -n 's|.*active sync[^/]*\(/dev/[^ ]*\).*|\1|p' | sort))
-
-		if [[ ${#raid_members[@]} -eq 0 ]]; then
-			die "RAID setup detected, but no valid member disks found for $efipartdev"
-		fi
-
-		einfo "RAID detected. RAID members: ${raid_members[*]}"
-
-		for disk in "${raid_members[@]}"; do
-			gptdev="$disk"
-			einfo "Adding EFI boot entry for RAID member: $gptdev"
-			try efibootmgr --verbose --create --disk "$gptdev" --part "$efipartnum" --label "gentoo" --loader '\vmlinuz.efi' --unicode "initrd=\\initramfs.img $(get_cmdline)"
-		done
-	else
 		# Non-RAID case: Create a single EFI boot entry
-		gptdev="/dev/$(basename "$(readlink -f "$sys_efipart/..")")" \
-			|| die "Failed to find parent device for EFI partition $efipartdev"
-		if [[ ! -e "$gptdev" ]] || [[ -z "$gptdev" ]]; then
-			gptdev="$(resolve_device_by_id "${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}")" \
-				|| die "Could not resolve device with id=${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}"
-		fi
-		try efibootmgr --verbose --create --disk "$gptdev" --part "$efipartnum" --label "gentoo" --loader '\vmlinuz.efi' --unicode 'initrd=\initramfs.img'" $(get_cmdline)"
+	gptdev="/dev/$(basename "$(readlink -f "$sys_efipart/..")")" \
+		|| die "Failed to find parent device for EFI partition $efipartdev"
+	if [[ ! -e "$gptdev" ]] || [[ -z "$gptdev" ]]; then
+		gptdev="$(resolve_device_by_id "${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}")" \
+			|| die "Could not resolve device with id=${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}"
 	fi
+	try efibootmgr --verbose --create --disk "$gptdev" --part "$efipartnum" --label "gentoo" --loader '\vmlinuz.efi' --unicode 'initrd=\initramfs.img'" $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
 	cat > "/boot/efi/efibootmgr_add_entry.sh" <<EOF
