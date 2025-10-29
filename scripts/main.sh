@@ -66,7 +66,7 @@ function main_install_gentoo_in_chroot() {
 	try emerge --verbose sys-kernel/ugrd sys-kernel/gentoo-sources app-arch/zstd
 
 	einfo "Installing extra tools for kernel config"
-	try emerge --ask sys-apps/pciutils
+	try emerge --verbose1 sys-apps/pciutils
 
 	# Install cryptsetup if we used LUKS
 	if [[ $USED_LUKS == "true" ]]; then
@@ -201,7 +201,7 @@ function install_kernel_efi() {
 
 	# Copy kernel to EFI
 	local kernel_file
-	kernel_file="$(find "/boot" \( -name "vmlinuz-*" -or -name 'kernel-*' \) -printf '%f\n' | sort -V | tail -n 1)" \
+	kernel_file="$(find "/boot" \( -name "vmlinuz-*" -or -name 'kernel-*' -or -name 'vmlinuz' \) -printf '%f\n' | sort -V | tail -n 1)" \
 		|| die "Could not list newest kernel file"
 
 	try cp "/boot/$kernel_file" "/boot/efi/vmlinuz.efi"
