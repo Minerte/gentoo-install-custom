@@ -1,6 +1,0 @@
-# Kernel pkg
-sys-kernel/installkernel -systemd efistub ugrd
-sys-kernel/genkernel firmware
-
-# Drivers
-x11-drivers/nvidia-drivers kernel-open
