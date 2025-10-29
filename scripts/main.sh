@@ -66,7 +66,7 @@ function main_install_gentoo_in_chroot() {
 	try emerge --verbose sys-kernel/ugrd sys-kernel/gentoo-sources app-arch/zstd
 
 	einfo "Installing extra tools for kernel config"
-	try emerge --verbose1 sys-apps/pciutils
+	try emerge --verbose sys-apps/pciutils
 
 	# Install cryptsetup if we used LUKS
 	if [[ $USED_LUKS == "true" ]]; then
