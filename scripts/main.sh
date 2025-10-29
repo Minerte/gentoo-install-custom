@@ -32,7 +32,7 @@ function main_install_gentoo_in_chroot() {
 
 	# Sync portage
 	einfo "Syncing portage tree"
-	try emerge-webrsync
+	try emerge --sync --quiet
 
 	if [[ $IS_EFI == "true" ]]; then
 		# Mount efi partition
@@ -54,28 +54,6 @@ function main_install_gentoo_in_chroot() {
 	einfo "Installing git"
 	try emerge --verbose dev-vcs/git
 
-	if [[ "$PORTAGE_SYNC_TYPE" == "git" ]]; then
-		mkdir_or_die 0755 "/etc/portage/repos.conf"
-		cat > /etc/portage/repos.conf/gentoo.conf <<EOF
-[DEFAULT]
-main-repo = gentoo
-
-[gentoo]
-location = /var/db/repos/gentoo
-sync-type = git
-sync-uri = $PORTAGE_GIT_MIRROR
-auto-sync = yes
-sync-depth = $([[ $PORTAGE_GIT_FULL_HISTORY == true ]] && echo -n 0 || echo -n 1)
-sync-git-verify-commit-signature = yes
-sync-openpgp-key-path = /usr/share/openpgp-keys/gentoo-release.asc
-EOF
-		chmod 644 /etc/portage/repos.conf/gentoo.conf \
-			|| die "Could not change permissions of '/etc/portage/repos.conf/gentoo.conf'"
-		rm -rf /var/db/repos/gentoo \
-			|| die "Could not delete obsolete rsync gentoo repository"
-		try emerge --sync
-	fi
-
 	einfo "Generating ssh host keys"
 	try ssh-keygen -A
 
@@ -91,14 +69,6 @@ EOF
 	if [[ $USED_LUKS == "true" ]]; then
 		einfo "Installing cryptsetup"
 		try emerge --verbose sys-fs/cryptsetup
-	fi
-
-	if [[ $SYSTEMD == "true" && $USED_LUKS == "true" ]] ; then
-		einfo "Enabling cryptsetup USE flag on sys-apps/systemd"
-		echo "sys-apps/systemd cryptsetup" > /etc/portage/package.use/systemd \
-			|| die "Could not write /etc/portage/package.use/systemd"
-		einfo "Rebuilding systemd with changed USE flag"
-		try emerge --verbose --changed-use --oneshot sys-apps/systemd
 	fi
 
 	# Install btrfs-progs if we used Btrfs
@@ -119,38 +89,11 @@ EOF
 	einfo "Installing gentoolkit"
 	try emerge --verbose app-portage/gentoolkit
 
-	if [[ $SYSTEMD == "true" ]]; then
-		if [[ $SYSTEMD_NETWORKD == "true" ]]; then
-			# Enable systemd networking and dhcp
-			enable_service systemd-networkd
-			enable_service systemd-resolved
-			if [[ $SYSTEMD_NETWORKD_DHCP == "true" ]]; then
-				echo -en "[Match]\nName=${SYSTEMD_NETWORKD_INTERFACE_NAME}\n\n[Network]\nDHCP=yes" > /etc/systemd/network/20-wired.network \
-					|| die "Could not write dhcp network config to '/etc/systemd/network/20-wired.network'"
-			else
-				addresses=""
-				for addr in "${SYSTEMD_NETWORKD_ADDRESSES[@]}"; do
-					addresses="${addresses}Address=$addr\n"
-				done
-				echo -en "[Match]\nName=${SYSTEMD_NETWORKD_INTERFACE_NAME}\n\n[Network]\n${addresses}Gateway=$SYSTEMD_NETWORKD_GATEWAY" > /etc/systemd/network/20-wired.network \
-					|| die "Could not write dhcp network config to '/etc/systemd/network/20-wired.network'"
-			fi
-			chown root:systemd-network /etc/systemd/network/20-wired.network \
-				|| die "Could not change owner of '/etc/systemd/network/20-wired.network'"
-			chmod 640 /etc/systemd/network/20-wired.network \
-				|| die "Could not change permissions of '/etc/systemd/network/20-wired.network'"
-		fi
-	else
-		# Install and enable dhcpcd
-		einfo "Installing dhcpcd"
-		try emerge --verbose net-misc/dhcpcd
+	# Install and enable dhcpcd
+	einfo "Installing dhcpcd"
+	try emerge --verbose net-misc/dhcpcd
 
-		enable_service dhcpcd
-	fi
-
-	if [[ $ENABLE_SSHD == "true" ]]; then
-		enable_sshd
-	fi
+	enable_service dhcpcd
 
 	# Install additional packages, if any.
 	if [[ ${#ADDITIONAL_PACKAGES[@]} -gt 0 ]]; then
@@ -165,15 +108,6 @@ EOF
 	else
 		try passwd -d root
 		ewarn "Root password cleared, set one as soon as possible!"
-	fi
-
-	# If configured, change to gentoo testing at the last moment.
-	# This is to ensure a smooth installation process. You can deal
-	# with the blockers after installation ;)
-	if [[ $USE_PORTAGE_TESTING == "true" ]]; then
-		einfo "Adding ~$GENTOO_ARCH to ACCEPT_KEYWORDS"
-		echo "ACCEPT_KEYWORDS=\"~$GENTOO_ARCH\"" >> /etc/portage/make.conf \
-			|| die "Could not modify /etc/portage/make.conf"
 	fi
 
 	einfo "Gentoo installation complete."

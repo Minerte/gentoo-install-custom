@@ -879,3 +879,7 @@ function env_update() {
 		|| die "Could not source /etc/profile"
 	umask 0077
 }	
+
+function enable_service() {
+		try rc-update add "$1" default
+}
