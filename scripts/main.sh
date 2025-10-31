@@ -375,7 +375,7 @@ hostonly = false
 modules = [
   "ugrd.kmod.usb",
   "ugrd.crypto.gpg",
-  "ugrd.crypto.cryptsetup"
+  "ugrd.crypto.cryptsetup",
   "ugrd.fs.btrfs",
 ]
 

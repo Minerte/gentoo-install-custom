@@ -1,0 +1,53 @@
+[+] Generating initramfs with ugRD
+INFO     | Processing module: ugrd.base.base
+INFO     | Processing module: ugrd.base.core
+INFO     | Processing module: ugrd.fs.mounts
+INFO     | Adding library path: /usr/lib64
+INFO     | Processing module: ugrd.base.cmdline
+INFO     | Processing module: ugrd.base.banner
+INFO     | Processing module: ugrd.kmod.kmod
+INFO     | Processing module: ugrd.kmod.standard_mask
+INFO     | Processing module: ugrd.kmod.input
+INFO     | Processing module: ugrd.fs.cpio
+INFO     | Processing module: ugrd.base.checks
+INFO     | [kernel_version] Setting from arguments: 6.12.41-gentoo
+INFO     | Loading config file: /etc/ugrd/config.toml
+Traceback (most recent call last):
+ File "/usr/lib/python3.13/site-packages/ugrd/initramfs_generator.py", line 32, in __init__
+   self.load_config(config)  # The user config is loaded over the base config, clobbering kwargs
+   ~~~~~~~~~~~~~~~~^^^^^^^^
+ File "/usr/lib/python3.13/site-packages/ugrd/initramfs_generator.py", line 55, in load_config
+   raw_config = load(config_file)
+ File "/usr/lib/python3.13/tomllib/_parser.py", line 66, in load
+   return loads(s, parse_float=parse_float)
+ File "/usr/lib/python3.13/tomllib/_parser.py", line 102, in loads
+   pos = key_value_rule(src, pos, out, header, parse_float)
+ File "/usr/lib/python3.13/tomllib/_parser.py", line 326, in key_value_rule
+   pos, key, value = parse_key_value_pair(src, pos, parse_float)
+                     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+ File "/usr/lib/python3.13/tomllib/_parser.py", line 369, in parse_key_value_pair
+   pos, value = parse_value(src, pos, parse_float)
+                ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+ File "/usr/lib/python3.13/tomllib/_parser.py", line 616, in parse_value
+   return parse_array(src, pos, parse_float)
+ File "/usr/lib/python3.13/tomllib/_parser.py", line 428, in parse_array
+   raise suffixed_err(src, pos, "Unclosed array")
+tomllib.TOMLDecodeError: Unclosed array (at line 12, column 3)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+ File "/usr/lib/python-exec/python3.13/ugrd", line 8, in <module>
+   sys.exit(main())
+            ~~~~^^
+ File "/usr/lib/python3.13/site-packages/ugrd/main.py", line 169, in main
+   generator = InitramfsGenerator(**kwargs)
+ File "/usr/lib/python3.13/site-packages/zenlib/logging/loggify.py", line 12, in __init__
+   super().__init__(*args, **kwargs)
+   ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+ File "/usr/lib/python3.13/site-packages/ugrd/initramfs_generator.py", line 42, in __init__
+   raise ValueError("[%s] Error decoding config file: %s" % (config, e))
+ValueError: [/etc/ugrd/config.toml] Error decoding config file: Unclosed array (at line 12, column 3)
+* Command failed: $ ugrd --config /etc/ugrd/config.toml --kernel-version 6.12.41-gentoo
+Last command failed with exit code 1
+
