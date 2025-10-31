@@ -285,14 +285,14 @@ function generate_initramfs() {
 
 	# Create ugRD configuration file
 	local config_file="/etc/ugrd/config.toml"
-	
+
 	# Build ugRD modules list
-	local ugrd_modules=()
-	ugrd_modules+=("base")  # Base module is always needed
-	[[ $USED_LUKS == "true" ]] \
-		&& ugrd_modules+=("crypt")
-	[[ $USED_BTRFS == "true" ]] \
-		&& ugrd_modules+=("btrfs")
+	# local ugrd_modules=()
+	# ugrd_modules+=("base")  # Base module is always needed
+	# [[ $USED_LUKS == "true" ]] \
+	#	&& ugrd_modules+=("crypt")
+	# [[ $USED_BTRFS == "true" ]] \
+	#	&& ugrd_modules+=("btrfs")
 
 # TESTING
 # 	# Create temporary ugRD config
@@ -373,30 +373,31 @@ hostonly = false
 
 # Modules to include
 modules = [
-$(printf \'    "%s",\\n\' "${ugrd_modules[@]}")
+  "ugrd.kmod.usb",
+  "ugrd.crypto.gpg",
+  "ugrd.crypto.cryptsetup"
+  "ugrd.fs.btrfs",
 ]
+
+auto_mount = ['/boot']
+
+root_subvol="root"
 
 # Keymap for initramfs
 [config.init]
 keymap = "$KEYMAP_INITRAMFS"
 
+[cryptsetup.root]
+key_type = "gpg"
+key_file = "/boot/rootfs.luks.gpg"
+header_file = "/boot/root_luks_header.img"
+
+[cryptsetup.swap]
+key_type = "gpg"
+key_file = "/boot/swapfs.luks.gpg"
+header_file = "/boot/swap_luks_header.img"
+
 EOF
-
-	# Add LUKS-specific configuration if needed
-	if [[ $USED_LUKS == "true" ]]; then
-		cat >> "$config_file" <<EOF
-[crypt]
-# LUKS/dm-crypt configuration
-gpg_support = true
-
-EOF
-
-		local gpg_mount
-		gpg_mount="$(mount_gpg_storage)"
-		mkdir -p /etc/ugrd/gpg
-        cp "$gpg_mount/luks-key.gpg" /etc/ugrd/gpg/
-
-	fi
 
 	# Generate initramfs with ugRD
 	try ugrd --config "$config_file" --kernel-version "$kver"

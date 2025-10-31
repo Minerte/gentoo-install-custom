@@ -114,7 +114,7 @@ function create_gpg_disk_layout() {
 		swap_id="part_luks_swap"
 
 		# Encrypt ROOT partition with GPG keyfile
-		create_luks new_id=part_luks_root name="root" id=part_root
+		create_luks new_id=part_luks_root name="cryptroot" id=part_root
 		root_id="part_luks_root"
 	fi
 
