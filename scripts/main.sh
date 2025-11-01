@@ -50,6 +50,16 @@ function main_install_gentoo_in_chroot() {
 	# Prepare portage environment
 	configure_portage # from same file
 
+	# Copy GPG keys for LUKS
+	if [[ -f "$TMP_DIR/cryptroot-KEY.gpg" ]]; then
+		einfo "Copying GPG key for rootfs"
+		install -m0600 "$TMP_DIR/cryptroot-KEY.gpg" "/boot/rootfs.luks.gpg" || die "Could not copy GPG key for rootfs"
+	fi
+	if [[ -f "$TMP_DIP/cryptswap-KEY.gpg" ]]; then
+		einfo "Copying GPG key for swap"
+		install -m0600 "$TMP_DIR/cryptswap-KEY.gpg" "/boot/swapfs.luks.gpg" || die "Could not copy GPG key for swap"
+	fi
+
 	# Install git (for git portage overlays)
 	einfo "Installing git"
 	try emerge --verbose dev-vcs/git
@@ -387,15 +397,14 @@ root_subvol="root"
 [config.init]
 keymap = "$KEYMAP_INITRAMFS"
 
-[cryptsetup.root]
-# key_type = "gpg"
-key_file = "/boot/rootfs.luks.gpg"
-header_file = "/boot/root_luks_header.img"
+[cryptsetup]
+  [cryptsetup.root]
+  key_file = "/boot/rootfs.luks.gpg"
+  header_file = "/boot/root_luks_header.img"
 
-[cryptsetup.swap]
-# key_type = "gpg"
-key_file = "/boot/swapfs.luks.gpg"
-header_file = "/boot/swap_luks_header.img"
+  [cryptsetup.swap]
+  key_file = "/boot/swapfs.luks.gpg"
+  header_file = "/boot/swap_luks_header.img"
 
 # Key have been moved?
 
