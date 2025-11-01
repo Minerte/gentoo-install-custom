@@ -388,14 +388,16 @@ root_subvol="root"
 keymap = "$KEYMAP_INITRAMFS"
 
 [cryptsetup.root]
-key_type = "gpg"
+# key_type = "gpg"
 key_file = "/boot/rootfs.luks.gpg"
 header_file = "/boot/root_luks_header.img"
 
 [cryptsetup.swap]
-key_type = "gpg"
+# key_type = "gpg"
 key_file = "/boot/swapfs.luks.gpg"
 header_file = "/boot/swap_luks_header.img"
+
+# Key have been moved?
 
 EOF
 
