@@ -492,10 +492,6 @@ function disk_create_luks_with_gpg() {
 	
 	einfo "Generated GPG encrypted keyfile: $keyfile"
 
-	# Copy keyfile to tmpfs to make it accessible from chroot
-	cp "$keyfile" "$TMP_DIR/${name}-KEY.gpg" \
-		|| die "Could not copy keyfile to tmpfs"
-
 	# Use the GPG keyfile to format LUKS partition
 	# Pipe decrypted key directly to cryptsetup (never stored unencrypted on disk)
 	gpg --batch --yes --decrypt "$keyfile" \
