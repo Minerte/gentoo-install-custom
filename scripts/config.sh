@@ -32,6 +32,8 @@ DISK_ACTIONS=()
 declare -gA DISK_ID_TO_RESOLVABLE
 # An associative array from disk id to parent gpt disk id (only for partitions)
 declare -gA DISK_ID_PART_TO_GPT_ID
+# An associative array from luks id to underlying partition id
+declare -gA DISK_ID_LUKS_TO_UNDERLYING_ID
 # An associative array to check for existing ids (maps to uuids)
 declare -gA DISK_ID_TO_UUID
 # An associative set to check for correct usage of size=remaining in gpt tables
@@ -63,7 +65,7 @@ function create_boot_storage_disk_layout() {
 	# IMPORTANT: Uses passphrase-based LUKS (not GPG keyfile) to avoid circular dependency
 	local gpg_storage_id="part_gpg_storage"
 	if [[ "$use_luks" == "true" ]]; then
-		create_luks_passphrase new_id=part_luks_gpg_storage name="gpg-torage" id=part_gpg_storage
+		create_luks_passphrase new_id=part_luks_gpg_storage name="gpg-storage" id=part_gpg_storage
 		gpg_storage_id="part_luks_gpg_storage"
 	fi
 
@@ -236,6 +238,9 @@ function create_luks() {
 	local new_id="${arguments[new_id]}"
 	local name="${arguments[name]}"
 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
+	if [[ -v arguments[id] ]]; then
+		DISK_ID_LUKS_TO_UNDERLYING_ID[$new_id]="${arguments[id]}"
+	fi
 	create_resolve_entry "$new_id" luks "$name" # from Utils.sh
 	DISK_ACTIONS+=("action=create_luks" "$@" ";")
 }
@@ -256,6 +261,9 @@ function create_luks_passphrase() {
 	local new_id="${arguments[new_id]}"
 	local name="${arguments[name]}"
 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
+	if [[ -v arguments[id] ]]; then
+		DISK_ID_LUKS_TO_UNDERLYING_ID[$new_id]="${arguments[id]}"
+	fi
 	create_resolve_entry "$new_id" luks "$name"
 	DISK_ACTIONS+=("action=create_luks_passphrase" "$@" ";")
 }

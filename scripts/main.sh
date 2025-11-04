@@ -296,16 +296,19 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-[config.mod] = [
-	"uas", 
-	"dm_crypt", 
-	"xts", 
-	"dm_mod",
-	]
+#[config.mod] 
+#builtin_modules = [
+#	"uas", 
+#	"dm_crypt", 
+#	"xts", 
+#	"dm_mod",
+#	]
 # Add "ccp" if you have a newer AMD CPU with crypto acceleration
 # Add "aes_x86_64" if that's what your system uses
 
 auto_mount = ['/boot']
+
+validate = false
 
 # Keymap for initramfs
 [config.init]
@@ -315,12 +318,27 @@ keymap = "$KEYMAP_INITRAMFS"
 key_type = "gpg"
 key_file = "/boot/efi/cryptroot_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
 # header_file = "/boot/efi/root_luks_header.img"
+EOF
+
+	if [[ -v "DISK_ID_SWAP" ]]; then
+		local swap_uuid_id="$DISK_ID_SWAP"
+		if [[ ${DISK_ID_TO_RESOLVABLE[$swap_uuid_id]%%:*} == "luks" ]]; then
+			swap_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$swap_uuid_id]}"
+		fi
+		local swap_uuid
+		swap_uuid="$(get_blkid_uuid_for_id "$swap_uuid_id")"
+
+		cat >> "$config_file" <<EOF
 
 [cryptsetup.cryptswap]
-uuid = "$(get_blkid_uuid_for_id "$DISK_ID_SWAP")"
+uuid = "$swap_uuid"
 key_type = "gpg"
 key_file = "/boot/efi/cryptswap_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
 # header_file = "/boot/efi/swap_luks_header.img"
+EOF
+	fi
+
+	cat >> "$config_file" <<EOF
 
 # Key have been moved?
 
@@ -356,11 +374,22 @@ EOF
 # TESTING NEW
 }
 
+function get_cmdline() {
+	local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
+	cmdline+=("${DISK_DRACUT_CMDLINE[@]}")
+
+	if [[ $USED_ZFS != "true" ]]; then
+		cmdline+=("root=UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")")
+	fi
+
+	echo -n "${cmdline[*]}"
+}
+
 function generate_fstab() {
 	einfo "Generating fstab"
 	install -m0644 -o root -g root "$GENTOO_INSTALL_REPO_DIR/contrib/fstab" /etc/fstab \
 		|| die "Could not overwrite /etc/fstab"
-	if [[ $USED_ZFS != "true" && -n $DISK_ID_ROOT_TYPE ]]; then
+	if [[ -n $DISK_ID_ROOT_TYPE ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_ROOT_MOUNT_OPTS" "0 1"
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_HOME_MOUNT_OPTS"	"0 0"
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_ETC_MOUNT_OPTS"	"0 0"
