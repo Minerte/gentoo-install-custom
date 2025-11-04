@@ -482,11 +482,11 @@ function disk_create_luks_with_gpg() {
 		|| die "Could not create keys directory"
 
 	# Generate a unique keyfile name based on the mapper name
-	local keyfile="/mnt/keys/${name}-KEY.gpg"
+	local keyfile="/mnt/keys/${name}_key.luks.gpg"
 
 	# Generate random key and encrypt it with GPG
 	# Using 8MB (8388608 bytes) of random data for strong key
-	dd if=/dev/urandom bs=8388608 count=1 status=none \
+	dd bs=8388608 count=1 if=/dev/urandom \
 		| gpg --symmetric --cipher-algo AES256 --output "$keyfile" \
 		|| die "Could not generate GPG encrypted keyfile"
 	

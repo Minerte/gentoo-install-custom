@@ -99,7 +99,7 @@ function create_gpg_disk_layout() {
 	create_gpt new_id=gpt_root device="$device"
 	
 	# Create swap partition (partition 1)
-	create_partition new_id=part_swap id=gpt_root size="$size_swap" type=swap
+	create_partition new_id=part_swap id=gpt_swap size="$size_swap" type=swap
 	
 	# Create root partition (partition 2)
 	create_partition new_id=part_root id=gpt_root size=remaining type=linux
