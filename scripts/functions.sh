@@ -508,8 +508,11 @@ function disk_create_luks_with_gpg() {
 			"$device" \
 		|| die "Could not create luks on $device_desc"
 	
-	mkdir -p "$LUKS_HEADER_BACKUP_DIR" \
-		|| die "Could not create luks header backup dir '$LUKS_HEADER_BACKUP_DIR'"
+	einfo "Making an backup of $LUKS_HEADER_BACKUP_DIR"
+
+	# Can maybe remove for it alrady created for gpg-storage
+	#mkdir -p "$LUKS_HEADER_BACKUP_DIR" \
+	#	|| die "Could not create luks header backup dir '$LUKS_HEADER_BACKUP_DIR'"
 	
 	local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-${new_id}-${uuid,,}.img"
 	[[ ! -e $header_file ]] \
