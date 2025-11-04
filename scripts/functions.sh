@@ -660,8 +660,24 @@ function init_btrfs() {
 		|| die "Could not create /btrfs directory"
 	mount "$device" /btrfs \
 		|| die "Could not mount $desc to /btrfs"
+
+	einfo "Creating subvolume for root, home, etc, var, log and tmp"
+
 	btrfs subvolume create /btrfs/root \
 		|| die "Could not create btrfs subvolume /root on $desc"
+	btrfs subvolume create /btrfs/home \
+		|| die "Could not create btrfs subvolume /home on $desc"
+	btrfs subvolume create /btrfs/etc \
+		|| die "Could not create btrfs subvolume /etc on $desc"
+	btrfs subvolume create /btrfs/var \
+		|| die "Could not create btrfs subvolume /var $desc"
+	btrfs subvolume create /btrfs/log \
+		|| die "Could not create btrfs subvolume /log $desc"
+	btrfs subvolume create /btrfs/tmp \
+		|| die "Could not create btrfs subvolume /tmp $desc"
+
+	einfo "Setting /btrfs/root as default"
+	
 	btrfs subvolume set-default /btrfs/root \
 		|| die "Could not set default btrfs subvolume to /root on $desc"
 	umount /btrfs \

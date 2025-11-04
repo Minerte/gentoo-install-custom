@@ -290,11 +290,20 @@ function generate_initramfs() {
 
 # Modules to include
 modules = [
-  "ugrd.base.checks",
-  "ugrd.kmod.usb",
-  "ugrd.crypto.gpg",
-  "ugrd.crypto.cryptsetup",
-]
+	"ugrd.base.checks",
+	"ugrd.kmod.usb",
+	"ugrd.crypto.gpg",
+	"ugrd.crypto.cryptsetup",
+	]
+
+[config.mod] = [
+	"uas", 
+	"dm_crypt", 
+	"xts", 
+	"dm_mod",
+	]
+# Add "ccp" if you have a newer AMD CPU with crypto acceleration
+# Add "aes_x86_64" if that's what your system uses
 
 auto_mount = ['/boot']
 
@@ -302,15 +311,16 @@ auto_mount = ['/boot']
 [config.init]
 keymap = "$KEYMAP_INITRAMFS"
 
-[cryptsetup.root]
+[cryptsetup.cryptroot]
 key_type = "gpg"
-key_file = "/boot/efi/root_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
-header_file = "/boot/efi/root_luks_header.img"
+key_file = "/boot/efi/cryptroot_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
+# header_file = "/boot/efi/root_luks_header.img"
 
-[cryptsetup.swap]
+[cryptsetup.cryptswap]
+uuid = "$(get_blkid_uuid_for_id "$DISK_ID_SWAP")"
 key_type = "gpg"
-key_file = "/boot/efi/swap_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
-header_file = "/boot/efi/swap_luks_header.img"
+key_file = "/boot/efi/cryptswap_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
+# header_file = "/boot/efi/swap_luks_header.img"
 
 # Key have been moved?
 
@@ -352,11 +362,14 @@ function generate_fstab() {
 		|| die "Could not overwrite /etc/fstab"
 	if [[ $USED_ZFS != "true" && -n $DISK_ID_ROOT_TYPE ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_ROOT_MOUNT_OPTS" "0 1"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_HOME_MOUNT_OPTS"	"0 0"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_ETC_MOUNT_OPTS"	"0 0"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_VAR_MOUNT_OPTS"	"0 0"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_LOG_MOUNT_OPTS"	"0 0"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_TMP_MOUNT_OPTS"	"0 0"
 	fi
 	if [[ $IS_EFI == "true" ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot/efi" "vfat" "defaults,noatime,fmask=0177,dmask=0077,noexec,nodev,nosuid,discard" "0 2"
-	else
-		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_BIOS")" "/boot/bios" "vfat" "defaults,noatime,fmask=0177,dmask=0077,noexec,nodev,nosuid,discard" "0 2"
 	fi
 	if [[ -v "DISK_ID_SWAP" ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_SWAP")" "none" "swap" "defaults,discard" "0 0"

@@ -28,8 +28,6 @@ NO_PARTITIONING_OR_FORMATTING=false
 
 # An array of disk related actions to perform
 DISK_ACTIONS=()
-# An array of dracut parameters needed to boot the selected configuration
-DISK_DRACUT_CMDLINE=()
 # An associative array from disk id to a resolvable string
 declare -gA DISK_ID_TO_RESOLVABLE
 # An associative array from disk id to parent gpt disk id (only for partitions)
@@ -132,6 +130,11 @@ function create_gpg_disk_layout() {
 	if [[ $root_fs == "btrfs" ]]; then
 		DISK_ID_ROOT_TYPE="btrfs"
 		DISK_ID_ROOT_MOUNT_OPTS="defaults,noatime,compress-force=zstd,subvol=/root"
+		DISK_ID_HOME_MOUNT_OPTS="defaults,noatime,compress-force=zstd,subvol=/home"
+		DISK_ID_ETC_MOUNT_OPTS="defaults,noatime,compress-force=zstd,subvol=/etc"
+		DISK_ID_VAR_MOUNT_OPTS="defaults,noatime,compress-force=zstd,subvol=/var"
+		DISK_ID_LOG_MOUNT_OPTS="defaults,noatime,compress-force=zstd,subvol=/log"
+		DISK_ID_TMP_MOUNT_OPTS="defaults,noatime,compress-force=zstd,subvol=/tmp"
 	else
 		die "Unsupported root filesystem type"
 	fi
@@ -234,7 +237,6 @@ function create_luks() {
 	local name="${arguments[name]}"
 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
 	create_resolve_entry "$new_id" luks "$name" # from Utils.sh
-	DISK_DRACUT_CMDLINE+=("rd.luks.uuid=$uuid")
 	DISK_ACTIONS+=("action=create_luks" "$@" ";")
 }
 
@@ -255,7 +257,6 @@ function create_luks_passphrase() {
 	local name="${arguments[name]}"
 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
 	create_resolve_entry "$new_id" luks "$name"
-	DISK_DRACUT_CMDLINE+=("rd.luks.uuid=$uuid")
 	DISK_ACTIONS+=("action=create_luks_passphrase" "$@" ";")
 }
 
