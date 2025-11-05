@@ -376,11 +376,7 @@ EOF
 
 function get_cmdline() {
 	local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
-	cmdline+=("${DISK_DRACUT_CMDLINE[@]}")
-
-	if [[ $USED_ZFS != "true" ]]; then
-		cmdline+=("root=UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")")
-	fi
+	cmdline+=("root=UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")")
 
 	echo -n "${cmdline[*]}"
 }
@@ -403,4 +399,9 @@ function generate_fstab() {
 	if [[ -v "DISK_ID_SWAP" ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_SWAP")" "none" "swap" "defaults,discard" "0 0"
 	fi
+}
+
+function add_fstab_entry() {
+	printf '%-46s  %-24s  %-6s  %-96s %s\n' "$1" "$2" "$3" "$4" "$5" >> /etc/fstab \
+		|| die "Could not append entry to fstab"
 }
