@@ -405,3 +405,14 @@ function add_fstab_entry() {
 	printf '%-46s  %-24s  %-6s  %-96s %s\n' "$1" "$2" "$3" "$4" "$5" >> /etc/fstab \
 		|| die "Could not append entry to fstab"
 }
+
+###############################
+## mount chroot after install
+
+function main_chroot() {
+	# Skip if already mounted
+	mountpoint -q -- "$1" \
+		|| die "'$1' is not a mountpoint"
+
+	gentoo_chroot "$@"
+}
