@@ -27,12 +27,6 @@ export GENTOO_INSTALL_REPO_SCRIPT_PID=$$
 
 umask 0077
 
-# Create log directory and redirect output
-LOG_DIR="$GENTOO_INSTALL_REPO_DIR/log"
-mkdir -p "$LOG_DIR"
-exec &> >(tee -a "$LOG_DIR/scripts.log")
-exec 2> >(tee -a "$LOG_DIR/os.log" >&2)
-
 # shellcheck source=./scripts/utils.sh
 source "$GENTOO_INSTALL_REPO_DIR/scripts/utils.sh"
 # shellcheck source=./scripts/config.sh
