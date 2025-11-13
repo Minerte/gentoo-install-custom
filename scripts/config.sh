@@ -65,7 +65,7 @@ function create_boot_storage_disk_layout() {
 	# IMPORTANT: Uses passphrase-based LUKS (not GPG keyfile) to avoid circular dependency
 	local gpg_storage_id="part_gpg_storage"
 	if [[ "$use_luks" == "true" ]]; then
-		create_luks_passphrase new_id=part_luks_gpg_storage name="gpg-storage" id=part_gpg_storage
+		create_luks_passphrase new_id=part_luks_gpg_storage name="gpg_storage" id=part_gpg_storage
 		gpg_storage_id="part_luks_gpg_storage"
 	fi
 
