@@ -290,53 +290,17 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mount = ['/boot/', '/boot/efi', '/mnt/gpg_storage']
+auto_mounts = ['/boot/', '/mnt/gpg_storage']
 
 # Keymap for initramfs
 [config.init]
 keymap = "$KEYMAP_INITRAMFS"
 EOF
 
-	# GET ROOT UUID
-	local root_uuid_id="$DISK_ID_ROOT"
-	if [[ ${DISK_ID_TO_RESOLVABLE[$root_uuid_id]%%:*} == "luks" ]]; then
-    	root_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_uuid_id]}"
-	fi
-	local root_uuid
-	root_uuid="$(get_blkid_uuid_for_id "$root_uuid_id")"
-
-cat >> "$config_file" <<EOF
-
-[cryptsetup.cryptroot]
-uuid = "$root_uuid"
-key_file = "/mnt/gpg_storage/cryptroot_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
-# header_file = "/boot/efi/root_luks_header.img"
-EOF
-
-	# GET SWAP UUID
-	if [[ -v "DISK_ID_SWAP" ]]; then
-		local swap_uuid_id="$DISK_ID_SWAP"
-		if [[ ${DISK_ID_TO_RESOLVABLE[$swap_uuid_id]%%:*} == "luks" ]]; then
-			swap_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$swap_uuid_id]}"
-		fi
-		local swap_uuid
-		swap_uuid="$(get_blkid_uuid_for_id "$swap_uuid_id")"
-
-		cat >> "$config_file" <<EOF
-
-[cryptsetup.cryptswap]
-uuid = "$swap_uuid"
-key_file = "/mnt/gpg_storage/cryptswap_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
-# header_file = "/boot/efi/swap_luks_header.img"
-EOF
-
-	fi # This ends the SWAP UUID
-
 	# Get GPG storage UUID
-	local gpg_storage_uuid_id="$DISK_ID_GPG_STORAGE"  # Or whatever variable holds your /dev/sda2
-	if [[ ${DISK_ID_TO_RESOLVABLE[$gpg_storage_uuid_id]%%:*} == "luks" ]]; then
-    	gpg_storage_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$gpg_storage_uuid_id]}"
-	fi
+	local gpg_storage_uuid_id="$DISK_ID_GPG_STORAGE"
+    gpg_storage_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$gpg_storage_uuid_id]}"
+
 	local gpg_storage_uuid
 	gpg_storage_uuid="$(get_blkid_uuid_for_id "$gpg_storage_uuid_id")"
 	cat >> "$config_file" <<EOF
@@ -346,9 +310,38 @@ uuid = "$gpg_storage_uuid"
 
 [mounts.gpg_storage]
 source = "/dev/mapper/gpg_storage"
-destination ="/mnt/gpg_storage"
+destination = "/mnt/gpg_storage"
 type = "ext4"
 EOF
+
+	# GET ROOT UUID
+	local root_uuid_id="$DISK_ID_ROOT"
+    root_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_uuid_id]}"
+	local root_uuid
+	root_uuid="$(get_blkid_uuid_for_id "$root_uuid_id")"
+
+cat >> "$config_file" <<EOF
+
+[cryptsetup.cryptroot]
+uuid = "$root_uuid"
+key_file = "/mnt/gpg_storage/cryptroot_key.luks.gpg"
+EOF
+
+	# GET SWAP UUID
+	if [[ -v "DISK_ID_SWAP" ]]; then
+		local swap_uuid_id="$DISK_ID_SWAP"
+		swap_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$swap_uuid_id]}"
+		local swap_uuid
+		swap_uuid="$(get_blkid_uuid_for_id "$swap_uuid_id")"
+
+		cat >> "$config_file" <<EOF
+
+[cryptsetup.cryptswap]
+uuid = "$swap_uuid"
+key_file = "/mnt/gpg_storage/cryptswap_key.luks.gpg"
+EOF
+
+	fi # This ends the SWAP UUID
 
 	# Generate initramfs with ugRD
 	try ugrd --kver "$kver" "$initramfs_path"
