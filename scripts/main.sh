@@ -381,10 +381,21 @@ EOF
 }
 
 function get_cmdline() {
-	local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
-	cmdline+=("root=UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")")
-
-	echo -n "${cmdline[*]}"
+    local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
+    
+	# For LUKS, root should point to the mapper device, not the UUID
+    cmdline+=("root=/dev/mapper/cryptroot")
+    
+    # Add filesystem type
+    cmdline+=("rootfstype=btrfs")
+    
+    # Add btrfs subvolume if you're using one
+    cmdline+=("rootflags=subvol=root")
+    
+    # Additional options
+    cmdline+=("ro" "quiet")
+    
+    echo -n "${cmdline[*]}"
 }
 
 function generate_fstab() {
