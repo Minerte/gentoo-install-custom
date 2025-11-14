@@ -50,10 +50,6 @@ function main_install_gentoo_in_chroot() {
 	# Prepare portage environment
 	configure_portage # from same file
 
-	# Install git (for git portage overlays)
-	einfo "Installing git"
-	try emerge --verbose dev-vcs/git
-
 	einfo "Generating ssh host keys"
 	try ssh-keygen -A
 
@@ -69,17 +65,16 @@ function main_install_gentoo_in_chroot() {
 	try emerge --verbose sys-apps/pciutils
 
 	# Install cryptsetup if we used LUKS
-	if [[ $USED_LUKS == "true" ]]; then
-		einfo "Installing cryptsetup and gnupg"
-		try emerge --verbose sys-fs/cryptsetup app-crypt/gnupg
-	fi
+	einfo "Installing cryptsetup and gnupg"
+	try emerge --verbose sys-fs/cryptsetup app-crypt/gnupg
 
 	# Install btrfs-progs if we used Btrfs
-	if [[ $USED_BTRFS == "true" ]]; then
-		einfo "Installing btrfs-progs"
-		try emerge --verbose sys-fs/btrfs-progs
-	fi
+	einfo "Installing btrfs-progs, ext4 and vfat"
+	try emerge --verbose sys-fs/btrfs-progs
+	try emerge --verbose sys-fs/e2fsprogs
+	try emerge --verbose sys-fs/dosfstools
 
+	einfo "Installing git"
 	try emerge --verbose dev-vcs/git
 
 	# Install kernel and initramfs
@@ -295,29 +290,30 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mount = ['/boot/efi', '/mnt/gpg_storage']
+auto_mount = ['/boot/', '/boot/efi', '/mnt/gpg_storage']
 
 # Keymap for initramfs
 [config.init]
 keymap = "$KEYMAP_INITRAMFS"
 EOF
 
-local root_uuid_id="$DISK_ID_ROOT"
-if [[ ${DISK_ID_TO_RESOLVABLE[$root_uuid_id]%%:*} == "luks" ]]; then
-    root_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_uuid_id]}"
-fi
-local root_uuid
-root_uuid="$(get_blkid_uuid_for_id "$root_uuid_id")"
+	# GET ROOT UUID
+	local root_uuid_id="$DISK_ID_ROOT"
+	if [[ ${DISK_ID_TO_RESOLVABLE[$root_uuid_id]%%:*} == "luks" ]]; then
+    	root_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_uuid_id]}"
+	fi
+	local root_uuid
+	root_uuid="$(get_blkid_uuid_for_id "$root_uuid_id")"
 
 cat >> "$config_file" <<EOF
 
 [cryptsetup.cryptroot]
-UUID = "$root_uuid"
-key_type = "gpg"
+uuid = "$root_uuid"
 key_file = "/mnt/gpg_storage/cryptroot_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
 # header_file = "/boot/efi/root_luks_header.img"
 EOF
 
+	# GET SWAP UUID
 	if [[ -v "DISK_ID_SWAP" ]]; then
 		local swap_uuid_id="$DISK_ID_SWAP"
 		if [[ ${DISK_ID_TO_RESOLVABLE[$swap_uuid_id]%%:*} == "luks" ]]; then
@@ -330,11 +326,29 @@ EOF
 
 [cryptsetup.cryptswap]
 uuid = "$swap_uuid"
-key_type = "gpg"
 key_file = "/mnt/gpg_storage/cryptswap_key.luks.gpg" # Might need to copy over and test with /boot/efi/ dir
 # header_file = "/boot/efi/swap_luks_header.img"
 EOF
+
+	fi # This ends the SWAP UUID
+
+	# Get GPG storage UUID
+	local gpg_storage_uuid_id="$DISK_ID_GPG_STORAGE"  # Or whatever variable holds your /dev/sda2
+	if [[ ${DISK_ID_TO_RESOLVABLE[$gpg_storage_uuid_id]%%:*} == "luks" ]]; then
+    	gpg_storage_uuid_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$gpg_storage_uuid_id]}"
 	fi
+	local gpg_storage_uuid
+	gpg_storage_uuid="$(get_blkid_uuid_for_id "$gpg_storage_uuid_id")"
+	cat >> "$config_file" <<EOF
+
+[cryptsetup.gpg_storage]
+uuid = "$gpg_storage_uuid"
+
+[mounts.gpg_storage]
+source = "/dev/mapper/gpg_storage"
+destination ="/mnt/gpg_storage"
+type = "ext4"
+EOF
 
 	# Generate initramfs with ugRD
 	try ugrd --kver "$kver" "$initramfs_path"
