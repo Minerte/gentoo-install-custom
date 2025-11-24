@@ -290,8 +290,7 @@ modules = [
 auto_mounts = ['/boot']
 
 # Keymap for initramfs
-# [config.init]
-keymap = "$KEYMAP_INITRAMFS"
+keymap_file = "$KEYMAP_INITRAMFS"
 EOF
 
 	# GET ROOT UUID

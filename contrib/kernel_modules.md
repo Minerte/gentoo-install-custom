@@ -40,25 +40,11 @@ CONFIG_USB_UAS=y                       # USB Attached SCSI (modern USB drives)
 
 ```
 Device Drivers  --->
-  Multiple devices driver support (RAID and LVM) --->
-    <*> Device mapper support                     (CONFIG_BLK_DEV_DM)
-    <*>   Crypt target support                    (CONFIG_DM_CRYPT)
-    <M>   Snapshot target                         (CONFIG_DM_SNAPSHOT)
-  Character devices --->
-    <*> Virtual terminal                           (CONFIG_VT)
-    <*>   Support for console on virtual terminal  (CONFIG_VT_CONSOLE)
-    <*> Unix98 PTY support                         (CONFIG_UNIX98_PTYS)
   Generic Driver Options --->
     <*> Maintain a devtmpfs filesystem             (CONFIG_DEVTMPFS)
     [*]   Automount devtmpfs at /dev               (CONFIG_DEVTMPFS_MOUNT)
-  Input device support --->
-    <*> Generic input layer (needed)
-    <*>   Keyboards
-    <*>     AT keyboard                            (CONFIG_KEYBOARD_ATKBD)
-  HID support --->
-    <*> HID bus support                            (CONFIG_HID)
-    <*>   Generic HID driver                       (CONFIG_HID_GENERIC)
-    <*> USB HID transport layer                    (CONFIG_USB_HID)
+  NVME Support --->
+    <*> NVM Express block device                   (CONFIG_BLK_DEV_NVME)
   SCSI device support --->
     <*> SCSI device support                        (CONFIG_SCSI)
     <*> SCSI disk support                          (CONFIG_BLK_DEV_SD)
@@ -66,8 +52,14 @@ Device Drivers  --->
     <*> ATA ACPI support
     <*> SATA support                               (CONFIG_ATA)
     <*>   AHCI SATA support                        (CONFIG_SATA_AHCI)
-  NVME Support --->
-    <*> NVM Express block device                   (CONFIG_BLK_DEV_NVME)
+  Multiple devices driver support (RAID and LVM) --->
+    <*> Device mapper support                     (CONFIG_BLK_DEV_DM)
+    <*>   Crypt target support                    (CONFIG_DM_CRYPT)
+    <M>   Snapshot target                         (CONFIG_DM_SNAPSHOT)
+  HID support --->
+    <*> HID bus support                            (CONFIG_HID)
+    <*>   Generic HID driver                       (CONFIG_HID_GENERIC)
+    <*> USB HID transport layer                    (CONFIG_USB_HID)
   USB support --->
     <*> Support for Host-side USB                  (CONFIG_USB)
     <*>   xHCI HCD (USB 3.0)                       (CONFIG_USB_XHCI_HCD)
@@ -103,15 +95,21 @@ CONFIG_CRYPTO_USER_API_RNG=y
 Cryptographic API  --->
   Block ciphers --->
     <*> AES (Advanced Encryption Standard)        (CONFIG_CRYPTO_AES)
-    <*>   AES cipher algorithms (x86_64)          (CONFIG_CRYPTO_AES_X86_64)
-  Hardware crypto devices --->
-    <*> AES-NI support for Intel CPUs             (CONFIG_CRYPTO_AES_NI_INTEL) # Intel_CPU only
-  Hardware crypto devices --->
-    <*> AMD Cryptographic Coprocessor (CCP)       (CONFIG_CRYPTO_DEV_CCP) # AMD_CPU only
+  Length-preserving ciphers and modes --->
+    <*> XTS (XOR Encrypt XOR with ciphertext stealing)
   Hashes and digests --->
     <*> SHA1                                       (CONFIG_CRYPTO_SHA1)
     <*> SHA256                                     (CONFIG_CRYPTO_SHA256)
     <*> SHA512                                     (CONFIG_CRYPTO_SHA512)
+  Hardware crypto devices --->
+    <*> AES-NI support for Intel CPUs             (CONFIG_CRYPTO_AES_NI_INTEL) # Intel_CPU only
+  Hardware crypto devices --->
+    [*] Support for AMD secure Processor
+    <M>   Secure Processor device driver
+    <*>     Cryptographic Coprocessor device
+    <M>       Encryption and hashing offload support
+    [*]     Platform Security Processor (PSP) device
+    [*]   Enable CCP Internals in DebugFS
 ```
 
 # File systems support
