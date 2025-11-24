@@ -187,9 +187,12 @@ function install_kernel() {
 	einfo "Installing linux-firmware"
 	echo "sys-kernel/linux-firmware linux-fw-redistributable no-source-code" >> /etc/portage/package.license \
 		|| die "Could not write to /etc/portage/package.license"
-	echo "sys-kernel/linux-firmware savedconfig initramfs compress-zstd" >> /etc/portage/package.use \
-		|| die "Could not write to /etc/portage/package.use"
+	echo "sys-kernel/linux-firmware savedconfig initramfs compress-zstd" >> /etc/portage/package.use/kernel \
+		|| die "Could not write to /etc/portage/package.use/kernel"
 	try emerge --verbose linux-firmware
+
+	cd / \
+		|| die "Could not change directory to /"
 }
 
 
@@ -210,7 +213,7 @@ function install_kernel_efi() {
 	kver="${kver#linux-}"
 
 	local initramfs_name="initramfs-${kver}.img"
-	local initramfs_path="/boot/efi/${initramfs_name}.img"
+	local initramfs_path="/boot/efi/${initramfs_name}"
 	# TESTING
 
 	# TESTING
@@ -385,7 +388,8 @@ function generate_fstab() {
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_TMP_MOUNT_OPTS"	"0 0"
 	fi
 	if [[ $IS_EFI == "true" ]]; then
-		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot/efi" "vfat" "defaults,noatime,fmask=0177,dmask=0077,noexec,nodev,nosuid,discard" "0 2"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot/efi" "vfat" "noauto,noatime" "0 1"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot"	   "ext4" "noauto,noatime" "0 1"
 	fi
 	if [[ -v "DISK_ID_SWAP" ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_SWAP")" "none" "swap" "defaults,discard" "0 0"
