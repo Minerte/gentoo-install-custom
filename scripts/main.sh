@@ -210,7 +210,7 @@ function install_kernel_efi() {
 	kver="${kver#linux-}"
 
 	local initramfs_name="initramfs-${kver}.img"
-	local initramfs_path="/boot/efi/${initramfs_name}"
+	local initramfs_path="/boot/efi/${initramfs_name}.img"
 	# TESTING
 
 	# TESTING
@@ -287,7 +287,8 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mounts = ['/boot']
+auto_mounts = ['/boot' '/boot/efi']
+autodetect_root = true
 
 # Keymap for initramfs
 [config.init]
