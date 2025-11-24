@@ -290,10 +290,9 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mounts = ['/boot']
-
+auto_mounts = ['/boot/efi']
 # Keymap for initramfs
-keymap_file = "$KEYMAP_INITRAMFS"
+# keymap_file = "$KEYMAP_INITRAMFS"
 EOF
 
 	# GET ROOT UUID
@@ -307,7 +306,7 @@ cat >> "$config_file" <<EOF
 [cryptsetup.cryptroot]
 uuid = "$root_uuid"
 key_type = "gpg"
-key_file = "/boot/cryptroot_key.luks.gpg"
+key_file = "/boot/efi/cryptroot_key.luks.gpg"
 EOF
 
 	# GET SWAP UUID
@@ -322,7 +321,7 @@ EOF
 [cryptsetup.cryptswap]
 uuid = "$swap_uuid"
 key_type = "gpg"
-key_file = "/boot/cryptswap_key.luks.gpg"
+key_file = "/boot/efi/cryptswap_key.luks.gpg"
 EOF
 
 	fi # This ends the SWAP UUID
@@ -389,7 +388,6 @@ function generate_fstab() {
 	fi
 	if [[ $IS_EFI == "true" ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot/efi" "vfat" "noauto,noatime" "0 1"
-		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot"	   "ext4" "noauto,noatime" "0 1"
 	fi
 	if [[ -v "DISK_ID_SWAP" ]]; then
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_SWAP")" "none" "swap" "defaults,discard" "0 0"

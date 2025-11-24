@@ -59,7 +59,8 @@ Device Drivers  --->
   HID support --->
     <*> HID bus support                            (CONFIG_HID)
     <*>   Generic HID driver                       (CONFIG_HID_GENERIC)
-    <*> USB HID transport layer                    (CONFIG_USB_HID)
+    USB HID support --->
+      <*> USB HID transport layer                    (CONFIG_USB_HID)
   USB support --->
     <*> Support for Host-side USB                  (CONFIG_USB)
     <*>   xHCI HCD (USB 3.0)                       (CONFIG_USB_XHCI_HCD)
