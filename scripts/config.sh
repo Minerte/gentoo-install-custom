@@ -40,7 +40,7 @@ declare -gA DISK_ID_TO_UUID
 declare -gA DISK_GPT_HAD_SIZE_REMAINING
 
 function create_boot_storage_disk_layout() {
-	local known_arguments=('?type' '?luks' '?boot_fs')
+	local known_arguments=('?type' '?boot_fs')
 	local extra_arguments=()
 	declare -A arguments; parse_arguments "$@"
 
@@ -49,7 +49,7 @@ function create_boot_storage_disk_layout() {
 	
 	local device="${extra_arguments[0]}"
 	local type="${arguments[type]:-efi}"
-	local use_luks="${arguments[luks]:-false}"
+	# local use_luks="${arguments[luks]:-false}"
 	local boot_fs="${arguments[boot_fs]:-ext4}"
 
 	# Create GPT partition table on boot device
@@ -63,7 +63,7 @@ function create_boot_storage_disk_layout() {
 
 	# Optionally encrypt the GPG storage partition
 	# IMPORTANT: Uses passphrase-based LUKS (not GPG keyfile) to avoid circular dependency
-	# local gpg_storage_id="part_gpg_storage"
+	local gpg_storage_id="part_gpg_storage"
 	# if [[ "$use_luks" == "true" ]]; then
 	# 	create_luks_passphrase new_id=part_luks_gpg_storage name="gpg_storage" id=part_gpg_storage
 	# 	gpg_storage_id="part_luks_gpg_storage"
