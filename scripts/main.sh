@@ -287,11 +287,10 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mounts = ['/boot' '/boot/efi']
-autodetect_root = true
+auto_mounts = ['/boot']
 
 # Keymap for initramfs
-[config.init]
+# [config.init]
 keymap = "$KEYMAP_INITRAMFS"
 EOF
 
