@@ -187,6 +187,8 @@ function install_kernel() {
 	einfo "Installing linux-firmware"
 	echo "sys-kernel/linux-firmware linux-fw-redistributable no-source-code" >> /etc/portage/package.license \
 		|| die "Could not write to /etc/portage/package.license"
+	echo "sys-kernel/linux-firmware savedconfig initramfs compress-zstd" >> /etc/portage/package.use \
+		|| die "Could not write to /etc/portage/package.use"
 	try emerge --verbose linux-firmware
 }
 
