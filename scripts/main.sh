@@ -285,7 +285,7 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mounts = ['/boot/']
+auto_mounts = ['/boot']
 
 # Keymap for initramfs
 [config.init]
@@ -302,6 +302,7 @@ cat >> "$config_file" <<EOF
 
 [cryptsetup.cryptroot]
 uuid = "$root_uuid"
+key_type = "gpg"
 key_file = "/boot/cryptroot_key.luks.gpg"
 EOF
 
@@ -316,6 +317,7 @@ EOF
 
 [cryptsetup.cryptswap]
 uuid = "$swap_uuid"
+key_type = "gpg"
 key_file = "/boot/cryptswap_key.luks.gpg"
 EOF
 

@@ -63,11 +63,11 @@ function create_boot_storage_disk_layout() {
 
 	# Optionally encrypt the GPG storage partition
 	# IMPORTANT: Uses passphrase-based LUKS (not GPG keyfile) to avoid circular dependency
-	local gpg_storage_id="part_gpg_storage"
-	if [[ "$use_luks" == "true" ]]; then
-		create_luks_passphrase new_id=part_luks_gpg_storage name="gpg_storage" id=part_gpg_storage
-		gpg_storage_id="part_luks_gpg_storage"
-	fi
+	# local gpg_storage_id="part_gpg_storage"
+	# if [[ "$use_luks" == "true" ]]; then
+	# 	create_luks_passphrase new_id=part_luks_gpg_storage name="gpg_storage" id=part_gpg_storage
+	# 	gpg_storage_id="part_luks_gpg_storage"
+	# fi
 
 	# Format the partitions
 	format id=part_efi type=efi label=efi
@@ -245,28 +245,28 @@ function create_luks() {
 	DISK_ACTIONS+=("action=create_luks" "$@" ";")
 }
 
-function create_luks_passphrase() {
-	USED_LUKS=true
-	USED_ENCRYPTION=true
+# function create_luks_passphrase() {
+# 	USED_LUKS=true
+# 	USED_ENCRYPTION=true
 
-	local known_arguments=('+new_id' '+name' '+device|id')
-	local extra_arguments=()
-	declare -A arguments; parse_arguments "$@"
+# 	local known_arguments=('+new_id' '+name' '+device|id')
+# 	local extra_arguments=()
+# 	declare -A arguments; parse_arguments "$@"
 
-	only_one_of device id
-	create_new_id new_id
-	[[ -v arguments[id] ]] \
-		&& verify_existing_id id
+# 	only_one_of device id
+# 	create_new_id new_id
+# 	[[ -v arguments[id] ]] \
+# 		&& verify_existing_id id
 
-	local new_id="${arguments[new_id]}"
-	local name="${arguments[name]}"
-	local uuid="${DISK_ID_TO_UUID[$new_id]}"
-	if [[ -v arguments[id] ]]; then
-		DISK_ID_LUKS_TO_UNDERLYING_ID[$new_id]="${arguments[id]}"
-	fi
-	create_resolve_entry "$new_id" luks "$name"
-	DISK_ACTIONS+=("action=create_luks_passphrase" "$@" ";")
-}
+# 	local new_id="${arguments[new_id]}"
+# 	local name="${arguments[name]}"
+# 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
+# 	if [[ -v arguments[id] ]]; then
+# 		DISK_ID_LUKS_TO_UNDERLYING_ID[$new_id]="${arguments[id]}"
+# 	fi
+# 	create_resolve_entry "$new_id" luks "$name"
+# 	DISK_ACTIONS+=("action=create_luks_passphrase" "$@" ";")
+# }
 
 function format() {
 	local known_arguments=('+id' '+type' '?label')

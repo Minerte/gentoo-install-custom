@@ -247,7 +247,7 @@ function apply_disk_action() {
 		'create_gpt')        disk_create_gpt       						;;
 		'create_partition')  disk_create_partition 						;;
 		'create_luks')		 disk_create_luks_with_gpg					;;
-		'create_luks_passphrase')    disk_create_luks_with_passphrase	;;
+	#	'create_luks_passphrase')    disk_create_luks_with_passphrase	;;
 		'create_dummy')      disk_create_dummy     						;;
 		'format')            disk_format           						;;
 		'format_btrfs')      disk_format_btrfs     						;;
@@ -374,81 +374,81 @@ function disk_create_partition() {
 	done
 }
 
-function disk_create_luks_with_passphrase() {
-	local new_id="${arguments[new_id]}"
-	local name="${arguments[name]}"
+# function disk_create_luks_with_passphrase() {
+# 	local new_id="${arguments[new_id]}"
+# 	local name="${arguments[name]}"
 	
-	if [[ ${disk_action_summarize_only-false} == "true" ]]; then
-		if [[ -v arguments[id] ]]; then
-			add_summary_entry "${arguments[id]}" "$new_id" "luks" "" ""
-		else
-			add_summary_entry __root__ "$new_id" "${arguments[device]}" "(luks)" ""
-		fi
-		return 0
-	fi
+# 	if [[ ${disk_action_summarize_only-false} == "true" ]]; then
+# 		if [[ -v arguments[id] ]]; then
+# 			add_summary_entry "${arguments[id]}" "$new_id" "luks" "" ""
+# 		else
+# 			add_summary_entry __root__ "$new_id" "${arguments[device]}" "(luks)" ""
+# 		fi
+# 		return 0
+# 	fi
 
-	local device
-	local device_desc=""
-	if [[ -v arguments[id] ]]; then
-		# Wait for device to appear (fixes the blkid error)
-		device="$(resolve_device_by_id "${arguments[id]}")"
-		device_desc="$device ($new_id)"
+# 	local device
+# 	local device_desc=""
+# 	if [[ -v arguments[id] ]]; then
+# 		# Wait for device to appear (fixes the blkid error)
+# 		device="$(resolve_device_by_id "${arguments[id]}")"
+# 		device_desc="$device ($new_id)"
 		
-		# Wait for device to actually exist
-		for i in {1..10}; do
-			[[ -e "$device" ]] && break
-			[[ "$i" -eq 1 ]] && printf "Waiting for device (%s) to appear..." "$device"
-			printf " %s" "$((10 - i + 1))"
-			sleep 1
-			[[ "$i" -eq 10 ]] && echo
-		done
+# 		# Wait for device to actually exist
+# 		for i in {1..10}; do
+# 			[[ -e "$device" ]] && break
+# 			[[ "$i" -eq 1 ]] && printf "Waiting for device (%s) to appear..." "$device"
+# 			printf " %s" "$((10 - i + 1))"
+# 			sleep 1
+# 			[[ "$i" -eq 10 ]] && echo
+# 		done
 		
-		[[ -e "$device" ]] \
-			|| die "Device $device does not exist after waiting"
-	else
-		device="${arguments[device]}"
-		device_desc="$device"
-	fi
+# 		[[ -e "$device" ]] \
+# 			|| die "Device $device does not exist after waiting"
+# 	else
+# 		device="${arguments[device]}"
+# 		device_desc="$device"
+# 	fi
 
-	local uuid="${DISK_ID_TO_UUID[$new_id]}"
+# 	local uuid="${DISK_ID_TO_UUID[$new_id]}"
 
-	einfo "Creating LUKS ($new_id) on $device_desc with passphrase"
-	einfo "You will be prompted to enter a passphrase for '$name'"
+# 	einfo "Creating LUKS ($new_id) on $device_desc with passphrase"
+# 	einfo "You will be prompted to enter a passphrase for '$name'"
 
-	# Create LUKS partition with passphrase (no keyfile, no GPG)
-	# User will be prompted to enter passphrase interactively
-	cryptsetup luksFormat \
-			--type luks2 \
-			--uuid "$uuid" \
-			--cipher aes-xts-plain64 \
-			--key-size 512 \
-			--hash sha512 \
-			--pbkdf argon2id \
-			--iter-time 4000 \
-			"$device" \
-		|| die "Could not create LUKS on $device_desc"
+# 	# Create LUKS partition with passphrase (no keyfile, no GPG)
+# 	# User will be prompted to enter passphrase interactively
+# 	cryptsetup luksFormat \
+# 			--type luks2 \
+# 			--uuid "$uuid" \
+# 			--cipher aes-xts-plain64 \
+# 			--key-size 512 \
+# 			--hash sha512 \
+# 			--pbkdf argon2id \
+# 			--iter-time 4000 \
+# 			"$device" \
+# 		|| die "Could not create LUKS on $device_desc"
 	
-	# Backup LUKS header
-	mkdir -p "$LUKS_HEADER_BACKUP_DIR" \
-		|| die "Could not create LUKS header backup dir '$LUKS_HEADER_BACKUP_DIR'"
+# 	# Backup LUKS header
+# 	mkdir -p "$LUKS_HEADER_BACKUP_DIR" \
+# 		|| die "Could not create LUKS header backup dir '$LUKS_HEADER_BACKUP_DIR'"
 	
-	local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-${new_id}-${uuid,,}.img"
-	[[ ! -e $header_file ]] \
-		|| rm "$header_file" \
-		|| die "Could not remove old LUKS header backup file '$header_file'"
+# 	local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-${new_id}-${uuid,,}.img"
+# 	[[ ! -e $header_file ]] \
+# 		|| rm "$header_file" \
+# 		|| die "Could not remove old LUKS header backup file '$header_file'"
 	
-	cryptsetup luksHeaderBackup "$device" \
-			--header-backup-file "$header_file" \
-		|| die "Could not backup LUKS header on $device_desc"
+# 	cryptsetup luksHeaderBackup "$device" \
+# 			--header-backup-file "$header_file" \
+# 		|| die "Could not backup LUKS header on $device_desc"
 	
-	# Open the LUKS device with passphrase
-	einfo "Now opening the encrypted device '$name'"
-	cryptsetup open --type luks2 \
-			"$device" "$name" \
-		|| die "Could not open LUKS encrypted device $device_desc"
+# 	# Open the LUKS device with passphrase
+# 	einfo "Now opening the encrypted device '$name'"
+# 	cryptsetup open --type luks2 \
+# 			"$device" "$name" \
+# 		|| die "Could not open LUKS encrypted device $device_desc"
 	
-	einfo "LUKS device $name created and opened successfully"
-}
+# 	einfo "LUKS device $name created and opened successfully"
+# }
 
 function disk_create_luks_with_gpg() {
 	export GPG_TTY=$(tty)
@@ -514,14 +514,14 @@ function disk_create_luks_with_gpg() {
 	#mkdir -p "$LUKS_HEADER_BACKUP_DIR" \
 	#	|| die "Could not create luks header backup dir '$LUKS_HEADER_BACKUP_DIR'"
 	
-	local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-${new_id}-${uuid,,}.img"
-	[[ ! -e $header_file ]] \
-		|| rm "$header_file" \
-		|| die "Could not remove old luks header backup file '$header_file'"
+	# local header_file="$LUKS_HEADER_BACKUP_DIR/luks-header-${new_id}-${uuid,,}.img"
+	# [[ ! -e $header_file ]] \
+	# 	|| rm "$header_file" \
+	# 	|| die "Could not remove old luks header backup file '$header_file'"
 	
-	cryptsetup luksHeaderBackup "$device" \
-			--header-backup-file "$header_file" \
-		|| die "Could not backup luks header on $device_desc"
+	# cryptsetup luksHeaderBackup "$device" \
+	# 		--header-backup-file "$header_file" \
+	# 	|| die "Could not backup luks header on $device_desc"
 
 	# Open the LUKS device using the GPG keyfile
 	gpg --batch --yes --decrypt "$keyfile" \
