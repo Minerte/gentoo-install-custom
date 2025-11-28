@@ -254,16 +254,40 @@ function install_kernel_efi() {
 			|| die "Could not resolve device with id=${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}"
 	fi
 
+	# Copying to EFIstub path
+	einfo "Copying over for UEFI entry"
+	mkdir -p /boot/efi/EFI/Gentoo 
+	cp /boot/efi/vmlinuz-* /boot/efi/EFI/Gentoo/bzImage.efi 
+	cp "${initramfs_path}" /boot/efi/EFI/Gentoo/
+
+
 	# TESTING
-	try efibootmgr --verbose --create --disk "$gptdev" --part "$efipartnum" --label "gentoo" --loader '\vmlinuz.efi' --unicode 'initrd=\${initramfs_name}'" $(get_cmdline)"
+	try efibootmgr --verbose \
+	--create \
+	--disk "$gptdev" \
+	--part "$efipartnum" \
+	--label "Gentoo" \
+	--loader '\EFI\Gentoo\bzImage.efi' \
+	--unicode "initrd=\EFI\Gentoo\\${initramfs_name} $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
-	cat > "/boot/efi/efibootmgr_add_entry.sh" <<EOF
+	cat > "/boot/efi/efibootmgr_add_entry.sh" <<'EOF'
 #!/bin/bash
-# This is the command that was used to create the efibootmgr entry when the
-# system was installed using gentoo-install.
-efibootmgr --verbose --create --disk "$gptdev" --part "$efipartnum" --label "gentoo" --loader '\\vmlinuz.efi' --unicode 'initrd=\\${initramfs_name}'" $(get_cmdline)"
+# Regenerate EFISTUB boot entry.
+
+gptdev="$gptdev"
+efipartnum="$efipartnum"
+initramfs_name="$initramfs_name"
+
+efibootmgr --verbose \\
+  --create \\
+  --disk "\$gptdev" \\
+  --part "\$efipartnum" \\
+  --label "Gentoo" \\
+  --loader '\EFI\Gentoo\bzImage.efi' \\
+  --unicode "initrd=\EFI\Gentoo\\\\\$initramfs_name \$(get_cmdline)"
 EOF
+
 
 # TESTING 
 }

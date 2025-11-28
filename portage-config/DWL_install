@@ -1,0 +1,5 @@
+dev-libs/libinput \
+dev-libs/wayland dev-libs/wayland-protocols dev-util/wayland-scanner\
+gui-libs/wlroots \
+x11-libs/libxkbcommon \
+dev-util/pkgconf virtual/pkgconfig 
