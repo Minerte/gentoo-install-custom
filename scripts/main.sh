@@ -201,7 +201,7 @@ function install_kernel_efi() {
 
 	# Copy kernel to EFI
 	local kernel_file
-	kernel_file="$(find "/boot" \( -name "vmlinuz-*" -or -name 'kernel-*' -or -name 'vmlinuz' \) -printf '%f\n' | sort -V | tail -n 1)" \
+	kernel_file="$(find "/boot" \( -name "vmlinuz-*" -or -name 'kernel-*' \) -printf '%f\n' | sort -V | tail -n 1)" \
 		|| die "Could not list newest kernel file"
 
 	try cp "/boot/$kernel_file" "/boot/efi/vmlinuz.efi"
@@ -214,11 +214,13 @@ function install_kernel_efi() {
 
 	local initramfs_name="initramfs-${kver}.img"
 	local initramfs_path="/boot/efi/${initramfs_name}"
+
+	cp "${initramfs_path}" /boot/efi/initramfs.img
 	# TESTING
 
 	# TESTING
 	# Generate initramfs
-	generate_initramfs "${initramfs_path}" "${kver}" 
+	generate_initramfs "/boot/efi/initramfs.img" "${kver}" 
 	# TESTING
 
 	# Create boot entry
@@ -254,42 +256,28 @@ function install_kernel_efi() {
 			|| die "Could not resolve device with id=${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}"
 	fi
 
-	# Copying to EFIstub path
-	einfo "Copying over for UEFI entry"
-	mkdir -p /boot/efi/EFI/Gentoo 
-	cp /boot/efi/vmlinuz* /boot/efi/EFI/Gentoo/bzImage.efi 
-	cp "${initramfs_path}" /boot/efi/EFI/Gentoo/
-
-
 	# TESTING
 	try efibootmgr --verbose \
 	--create \
 	--disk "$gptdev" \
 	--part "$efipartnum" \
 	--label "Gentoo" \
-	--loader "\EFI\Gentoo\bzImage.efi" \
-	--unicode "initrd=\EFI\Gentoo\\${initramfs_name} $(get_cmdline)"
+	--loader '\vmlinuz.efi' \
+	--unicode "initrd=\\${initramfs_name} $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
 	cat > "/boot/efi/efibootmgr_add_entry.sh" <<'EOF'
 #!/bin/bash
 # Regenerate EFISTUB boot entry.
 
-gptdev="$gptdev"
-efipartnum="$efipartnum"
-initramfs_name="$initramfs_name"
-
 efibootmgr --verbose \\
   --create \\
-  --disk "\$gptdev" \\
-  --part "\$efipartnum" \\
+  --disk "$gptdev" \\
+  --part "$efipartnum" \\
   --label "Gentoo" \\
-  --loader '\EFI\Gentoo\bzImage.efi' \\
-  --unicode "initrd=\EFI\Gentoo\\\\\$initramfs_name \$(get_cmdline)"
+  --loader '\\vmlinuz.efi' \\
+  --unicode "initrd=\\$initramfs_name $(get_cmdline)"
 EOF
-
-
-# TESTING 
 }
 
 function generate_initramfs() {
@@ -351,7 +339,7 @@ EOF
 	fi # This ends the SWAP UUID
 
 	# Generate initramfs with ugRD
-	try ugrd --kver "$kver" "$initramfs_path"
+	try ugrd --kver "$kver" /boot/efi/initramfs.img
 
 	# Alternatively, use command-line options (less recommended):
 	# try ugrd \\

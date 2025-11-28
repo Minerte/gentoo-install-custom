@@ -71,14 +71,12 @@ function create_boot_storage_disk_layout() {
 
 	# Format the partitions
 	format id=part_efi type=efi label=efi
-	format id="$gpg_storage_id" type=ext4 label=gpg_storage
+	format id="$gpg_storage_id" type=ext4 label=GPG_STORAGE
 
 	# Set global variables for the installation
-	if [[ $type == "efi" ]]; then
-		DISK_ID_EFI="part_efi"
-	else
-		die "Cant find efi id"
-	fi
+		DISK_ID_EFI="part_efi" \
+			|| die "Cant find efi id"
+
 	DISK_ID_GPG_STORAGE="$gpg_storage_id"
 }
 
