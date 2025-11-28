@@ -257,7 +257,7 @@ function install_kernel_efi() {
 	# Copying to EFIstub path
 	einfo "Copying over for UEFI entry"
 	mkdir -p /boot/efi/EFI/Gentoo 
-	cp /boot/efi/vmlinuz-* /boot/efi/EFI/Gentoo/bzImage.efi 
+	cp /boot/efi/vmlinuz* /boot/efi/EFI/Gentoo/bzImage.efi 
 	cp "${initramfs_path}" /boot/efi/EFI/Gentoo/
 
 
