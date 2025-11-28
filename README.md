@@ -1,5 +1,5 @@
 # About
-This project is inspired by [oddlamma](https://github.com/oddlama/gentoo-install) but differs in several important ways.
+This project is inspired by [oddlama](https://github.com/oddlama/gentoo-install) but differs in several important ways.
 ## Key differences from the orginal project
 - **Openrc support only**
 - **Seperated boot drive**

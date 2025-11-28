@@ -267,7 +267,7 @@ function install_kernel_efi() {
 	--disk "$gptdev" \
 	--part "$efipartnum" \
 	--label "Gentoo" \
-	--loader '\EFI\Gentoo\bzImage.efi' \
+	--loader "\EFI\Gentoo\bzImage.efi" \
 	--unicode "initrd=\EFI\Gentoo\\${initramfs_name} $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
@@ -381,22 +381,44 @@ EOF
 }
 
 function get_cmdline() {
-    local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
-    
-	# For LUKS, root should point to the mapper device, not the UUID
-    cmdline+=("root=/dev/mapper/cryptroot")
-    
-    # Add filesystem type
-    cmdline+=("rootfstype=btrfs")
-    
-    # Add btrfs subvolume if you're using one
-    cmdline+=("rootflags=subvol=root")
-    
-    # Additional options
-    cmdline+=("ro" "quiet")
-    
+    # get disk underlying ID (your existing mapping)
+    local root_id="$DISK_ID_ROOT"
+    root_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_id]}"
+    local root_uuid
+    root_uuid="$(get_blkid_uuid_for_id "$root_id")" || die "Could not get root UUID"
+
+    local cmdline=(
+        #"rd.vconsole.keymap=${KEYMAP_INITRAMFS:-us}"
+        # Let initramfs/ugRD know which LUKS to unlock and mapping name used in ugrd config
+        "cryptdevice=UUID=${root_uuid}:cryptroot"
+        # also give explicit mapper path
+        "root=/dev/mapper/cryptroot"
+        "rootfstype=btrfs"
+        "rootflags=subvol=root"
+        "ro" "quiet"
+    )
+
+    # join with spaces (no newline)
     echo -n "${cmdline[*]}"
 }
+
+# function get_cmdline() {
+#     local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
+    
+# 	# For LUKS, root should point to the mapper device, not the UUID
+#     cmdline+=("root=/dev/mapper/cryptroot")
+    
+#     # Add filesystem type
+#     cmdline+=("rootfstype=btrfs")
+    
+#     # Add btrfs subvolume if you're using one
+#     cmdline+=("rootflags=subvol=root")
+    
+#     # Additional options
+#     cmdline+=("ro" "quiet")
+    
+#     echo -n "${cmdline[*]}"
+# }
 
 function generate_fstab() {
 	einfo "Generating fstab"

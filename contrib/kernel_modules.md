@@ -48,14 +48,14 @@ Device Drivers  --->
   SCSI device support --->
     <*> SCSI device support                        (CONFIG_SCSI)
     <*> SCSI disk support                          (CONFIG_BLK_DEV_SD)
-  ATA/ATAPI/MFM/RLL support --->
+  Serial ATA and Parallel ATA drivers (libata)--->
     <*> ATA ACPI support
     <*> SATA support                               (CONFIG_ATA)
-    <*>   AHCI SATA support                        (CONFIG_SATA_AHCI)
+    <*> AHCI SATA support                          (CONFIG_SATA_AHCI)
   Multiple devices driver support (RAID and LVM) --->
-    <*> Device mapper support                     (CONFIG_BLK_DEV_DM)
-    <*>   Crypt target support                    (CONFIG_DM_CRYPT)
-    <M>   Snapshot target                         (CONFIG_DM_SNAPSHOT)
+    <*> Device mapper support                      (CONFIG_BLK_DEV_DM)
+    <*>   Crypt target support                     (CONFIG_DM_CRYPT)
+    <M>   Snapshot target                          (CONFIG_DM_SNAPSHOT)
   HID support --->
     <*> HID bus support                            (CONFIG_HID)
     <*>   Generic HID driver                       (CONFIG_HID_GENERIC)
@@ -67,7 +67,7 @@ Device Drivers  --->
     <*>   EHCI HCD (USB 2.0)                       (CONFIG_USB_EHCI_HCD)
     <*>   OHCI HCD (USB 1.1)                       (CONFIG_USB_OHCI_HCD)
     <*>   USB mass storage support                 (CONFIG_USB_STORAGE)
-    <*>   USB Attached SCSI (UAS) support          (CONFIG_USB_UAS)
+    <*>   USB Attached SCSI                        (CONFIG_USB_UAS)
 ```
 
 # cryptographic algorithms
@@ -131,5 +131,6 @@ File systems --->
   DOS/FAT/EXFAT/NT Filesystems --->
     <*> MSDOS fs support                            (CONFIG_FAT_FS)
     <*> VFAT (Windows-95) fs support                (CONFIG_VFAT_FS)
+    <*> exFAT filesystem support                    (....)
 
 ```
