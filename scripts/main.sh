@@ -196,7 +196,7 @@ function install_kernel() {
 		|| die "Could not write to /etc/portage/package.use/kernel"
 	try emerge --verbose linux-firmware
 
-	cd / \
+	try cd \
 		|| die "Could not change directory to /"
 }
 
@@ -206,10 +206,10 @@ function install_kernel_efi() {
 
 	# Copy kernel to EFI
 	local kernel_file
-	kernel_file="$(find "/efi" \( -name "vmlinuz-*" -or -name 'kernel-*' \) -printf '%f\n' | sort -V | tail -n 1)" \
+	kernel_file="$(find "/boot" \( -name "vmlinuz-*" -or -name 'kernel-*' \) -printf '%f\n' | sort -V | tail -n 1)" \
 		|| die "Could not list newest kernel file"
 
-	try cp "/efi/$kernel_file" "/efi/vmlinuz.efi"
+	try cp "/boot/$kernel_file" "/efi/vmlinuz.efi"
 
 	# TESTING
 	local kver
@@ -220,8 +220,6 @@ function install_kernel_efi() {
 	local initramfs_name="initramfs-${kver}.img"
 	local initramfs_path="/efi/${initramfs_name}"
 	# TESTING
-
-	try find initramfs-"${kver}".img
 
 	# TESTING
 	# Generate initramfs
@@ -263,19 +261,30 @@ function install_kernel_efi() {
 
 	# TESTING
 	try mkdir -p /efi/EFI/Gentoo
-	try cp "/efi/$kernel_file" "/efi/EFI/Gentoo/bzImage.efi"
-	try cp "${initramfs_path}" /efi/initramfs.img
-	try cp "${initramfs_path}" /efi/EFI/Gentoo/initramfs.img
+	try cp "/boot/$kernel_file" "/efi/EFI/Gentoo/bzImage.efi"
+	# TESTING embedded initramfs to kernel
+	# try cp /efi/initramfs.img /efi/EFI/Gentoo/initramfs.img
+	# TESTING embedded initramfs to kernel
 	# TESTING
 
-	# TESTING
+	# TESTING embedded initramfs to kernel
 	try efibootmgr --verbose \
 	--create \
 	--disk "$gptdev" \
 	--part "$efipartnum" \
 	--label "Gentoo" \
 	--loader "\EFI\Gentoo\bzImage.efi" \
-	--unicode "initrd=\EFI\Gentoo\initramfs.img $(get_cmdline)"
+	--unicode "$(get_cmdline)"
+	# TESTING embedded initramfs to kernel
+
+	# TESTING
+	#try efibootmgr --verbose \
+	#--create \
+	#--disk "$gptdev" \
+	#--part "$efipartnum" \
+	#--label "Gentoo" \
+	#--loader "\EFI\Gentoo\bzImage.efi" \
+	#--unicode "initrd=\EFI\Gentoo\initramfs.img $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
 	cat > "/efi/efibootmgr_add_entry.sh" <<'EOF'
@@ -350,7 +359,11 @@ EOF
 	fi # This ends the SWAP UUID
 
 	# Generate initramfs with ugRD
-	try ugrd --kver "$kver" /efi/initramfs.img
+	#try ugrd --kver "$kver" /efi/initramfs.img
+
+	# TESTING embedded initramfs to kernel
+	try ugrd --kver "$kver" --root /usr/src/initramfs
+	# TESTING embedded initramfs to kernel
 
 	# Alternatively, use command-line options (less recommended):
 	# try ugrd \\
@@ -395,10 +408,10 @@ function get_cmdline() {
         # Let initramfs/ugRD know which LUKS to unlock and mapping name used in ugrd config
 		"root=LABEL=root"
 		"rootflags=subvol=root"
-		"rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
+		"rd.luks.uuid=$root_uuid rd.luks.name=$root_uuid=cryptroot"
 		"rd.luks.key=/efi/cryptroot_key.luks.gpg"
         "rd.luks.allow-discards"
-		"rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
+		"rd.luks.uuid=$swap_uuid rd.luks.name=$swap_uuid=cryptswap"
 		"rd.luks.key=/efi/cryptswap_key.luks.gpg"
     )
 

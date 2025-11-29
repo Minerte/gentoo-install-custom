@@ -871,6 +871,12 @@ function gentoo_chroot() {
 			|| die "Failed to chroot into '$chroot_dir'."
 }
 
+function init_bash() {
+	source /etc/profile
+	umask 0077
+	export PS1='(chroot) \[[0;31m\]\u\[[1;31m\]@\h \[[1;34m\]\w \[[m\]\$ \[[m\]'
+}; export -f init_bash
+
 function bind_repo_dir() {
 	# Use new location by default
 	export GENTOO_INSTALL_REPO_DIR="$GENTOO_INSTALL_REPO_BIND"
