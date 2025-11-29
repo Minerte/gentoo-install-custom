@@ -38,7 +38,7 @@ function main_install_gentoo_in_chroot() {
 		# Mount efi partition
 		mount_efivars
 		einfo "Mounting efi partition"
-		mount_by_id "$DISK_ID_EFI" "/boot/efi"
+		mount_by_id "$DISK_ID_EFI" "/efi"
 	else
         # Cant have bios
         exit 0;
@@ -56,6 +56,11 @@ function main_install_gentoo_in_chroot() {
 	einfo "Enabling ugrd and efistub USE flag on sys-kernel/installkernel"
 	echo "sys-kernel/installkernel -systemd ugrd efistub" > /etc/portage/package.use/installkernel \
 		|| die "Could not write /etc/portage/package.use/installkernel"
+	cat > /etc/portage/package.accept_keywords/installkernel << EOF
+sys-kernel/installkernel
+sys-boot/uefi-mkconfig
+app-emulation/virt-firmware
+EOF
 
 	# Install required programs and kernel now, in order to
 	# prevent emerging module before an imminent kernel upgrade
@@ -201,10 +206,10 @@ function install_kernel_efi() {
 
 	# Copy kernel to EFI
 	local kernel_file
-	kernel_file="$(find "/boot" \( -name "vmlinuz-*" -or -name 'kernel-*' \) -printf '%f\n' | sort -V | tail -n 1)" \
+	kernel_file="$(find "/efi" \( -name "vmlinuz-*" -or -name 'kernel-*' \) -printf '%f\n' | sort -V | tail -n 1)" \
 		|| die "Could not list newest kernel file"
 
-	try cp "/boot/$kernel_file" "/boot/efi/vmlinuz.efi"
+	try cp "/efi/$kernel_file" "/efi/vmlinuz.efi"
 
 	# TESTING
 	local kver
@@ -213,14 +218,14 @@ function install_kernel_efi() {
 	kver="${kver#linux-}"
 
 	local initramfs_name="initramfs-${kver}.img"
-	local initramfs_path="/boot/efi/${initramfs_name}"
-
-	cp "${initramfs_path}" /boot/efi/initramfs.img
+	local initramfs_path="/efi/${initramfs_name}"
 	# TESTING
+
+	try find initramfs-"${kver}".img
 
 	# TESTING
 	# Generate initramfs
-	generate_initramfs "/boot/efi/initramfs.img" "${kver}" 
+	generate_initramfs "${initramfs_path}" "${kver}" 
 	# TESTING
 
 	# Create boot entry
@@ -257,16 +262,23 @@ function install_kernel_efi() {
 	fi
 
 	# TESTING
+	try mkdir -p /efi/EFI/Gentoo
+	try cp "/efi/$kernel_file" "/efi/EFI/Gentoo/bzImage.efi"
+	try cp "${initramfs_path}" /efi/initramfs.img
+	try cp "${initramfs_path}" /efi/EFI/Gentoo/initramfs.img
+	# TESTING
+
+	# TESTING
 	try efibootmgr --verbose \
 	--create \
 	--disk "$gptdev" \
 	--part "$efipartnum" \
 	--label "Gentoo" \
-	--loader '\vmlinuz.efi' \
-	--unicode "initrd=\\${initramfs_name} $(get_cmdline)"
+	--loader "\EFI\Gentoo\bzImage.efi" \
+	--unicode "initrd=\EFI\Gentoo\initramfs.img $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
-	cat > "/boot/efi/efibootmgr_add_entry.sh" <<'EOF'
+	cat > "/efi/efibootmgr_add_entry.sh" <<'EOF'
 #!/bin/bash
 # Regenerate EFISTUB boot entry.
 
@@ -282,7 +294,6 @@ EOF
 
 function generate_initramfs() {
 	local initramfs_path="$1"
-	# TESTING
 	local kver="$2"
 
 	# Generate initramfs
@@ -302,7 +313,7 @@ modules = [
 	"ugrd.crypto.cryptsetup",
 	]
 
-auto_mounts = ['/boot/efi']
+auto_mounts = ['/efi']
 # Keymap for initramfs
 # keymap_file = "$KEYMAP_INITRAMFS"
 EOF
@@ -318,7 +329,7 @@ cat >> "$config_file" <<EOF
 [cryptsetup.cryptroot]
 uuid = "$root_uuid"
 key_type = "gpg"
-key_file = "/boot/efi/cryptroot_key.luks.gpg"
+key_file = "/efi/cryptroot_key.luks.gpg"
 EOF
 
 	# GET SWAP UUID
@@ -333,13 +344,13 @@ EOF
 [cryptsetup.cryptswap]
 uuid = "$swap_uuid"
 key_type = "gpg"
-key_file = "/boot/efi/cryptswap_key.luks.gpg"
+key_file = "/efi/cryptswap_key.luks.gpg"
 EOF
 
 	fi # This ends the SWAP UUID
 
 	# Generate initramfs with ugRD
-	try ugrd --kver "$kver" /boot/efi/initramfs.img
+	try ugrd --kver "$kver" /efi/initramfs.img
 
 	# Alternatively, use command-line options (less recommended):
 	# try ugrd \\
@@ -370,43 +381,30 @@ EOF
 
 function get_cmdline() {
     # get disk underlying ID (your existing mapping)
-    local root_id="$DISK_ID_ROOT"
+	local root_id="$DISK_ID_ROOT"
     root_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_id]}"
+	local swap_id="$DISK_ID_SWAP"
+    root_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$swap_id]}"
     local root_uuid
     root_uuid="$(get_blkid_uuid_for_id "$root_id")" || die "Could not get root UUID"
+	local swap_uuid
+	swap_uuid="$(get_blkid_uuid_for_id "$swap_id")" || die "Could not get root UUID"
 
     local cmdline=(
         #"rd.vconsole.keymap=${KEYMAP_INITRAMFS:-us}"
         # Let initramfs/ugRD know which LUKS to unlock and mapping name used in ugrd config
-        "cryptdevice=UUID=${root_uuid}:cryptroot"
-        # also give explicit mapper path
-        "root=/dev/mapper/cryptroot"
-        "rootfstype=btrfs"
-        "rootflags=subvol=root"
-        "ro" "quiet"
+		"root=LABEL=root"
+		"rootflags=subvol=root"
+		"rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
+		"rd.luks.key=/efi/cryptroot_key.luks.gpg"
+        "rd.luks.allow-discards"
+		"rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
+		"rd.luks.key=/efi/cryptswap_key.luks.gpg"
     )
 
     # join with spaces (no newline)
     echo -n "${cmdline[*]}"
 }
-
-# function get_cmdline() {
-#     local cmdline=("rd.vconsole.keymap=$KEYMAP_INITRAMFS")
-    
-# 	# For LUKS, root should point to the mapper device, not the UUID
-#     cmdline+=("root=/dev/mapper/cryptroot")
-    
-#     # Add filesystem type
-#     cmdline+=("rootfstype=btrfs")
-    
-#     # Add btrfs subvolume if you're using one
-#     cmdline+=("rootflags=subvol=root")
-    
-#     # Additional options
-#     cmdline+=("ro" "quiet")
-    
-#     echo -n "${cmdline[*]}"
-# }
 
 function generate_fstab() {
 	einfo "Generating fstab"
@@ -421,10 +419,10 @@ function generate_fstab() {
 		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_ROOT")" "/" "$DISK_ID_ROOT_TYPE" "$DISK_ID_TMP_MOUNT_OPTS"	"0 0"
 	fi
 	if [[ $IS_EFI == "true" ]]; then
-		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/boot/efi" "vfat" "noauto,noatime" "0 1"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_EFI")" "/efi" "vfat" "umask=0077,noauto,noatime" "0 2"
 	fi
 	if [[ -v "DISK_ID_SWAP" ]]; then
-		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_SWAP")" "none" "swap" "defaults,discard" "0 0"
+		add_fstab_entry "UUID=$(get_blkid_uuid_for_id "$DISK_ID_SWAP")" "none" "swap" "sw" "0 0"
 	fi
 }
 
