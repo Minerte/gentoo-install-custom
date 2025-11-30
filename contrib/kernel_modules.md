@@ -114,16 +114,6 @@ Gentoo Linux --->
       [*] OpenRC, runit and other script based systems and managers
 ```
 
-# Embedding initramfs into kernel 
-### Might want to do that in the script
-change efibootmgr?
-```
-General Setup --->
-[*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
-    (/usr/src/initramfs) Initramfs source file(s)
-[*]   Support initial ramdisk/ramfs compressed using gzip
-```
-
 # SOF firmware (optional)
 ```
 Device Drivers --->

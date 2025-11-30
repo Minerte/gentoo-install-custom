@@ -262,29 +262,27 @@ function install_kernel_efi() {
 	# TESTING
 	try mkdir -p /efi/EFI/Gentoo
 	try cp "/boot/$kernel_file" "/efi/EFI/Gentoo/bzImage.efi"
-	# TESTING embedded initramfs to kernel
-	# try cp /efi/initramfs.img /efi/EFI/Gentoo/initramfs.img
-	# TESTING embedded initramfs to kernel
+	try cp /efi/initramfs.img /efi/EFI/Gentoo/initramfs.img
 	# TESTING
 
 	# TESTING embedded initramfs to kernel
+	# try efibootmgr --verbose \
+	# --create \
+	# --disk "$gptdev" \
+	# --part "$efipartnum" \
+	# --label "Gentoo" \
+	# --loader "\EFI\Gentoo\bzImage.efi" \
+	# --unicode "$(get_cmdline)"
+	# TESTING embedded initramfs to kernel
+
+	# TESTING
 	try efibootmgr --verbose \
 	--create \
 	--disk "$gptdev" \
 	--part "$efipartnum" \
 	--label "Gentoo" \
 	--loader "\EFI\Gentoo\bzImage.efi" \
-	--unicode "$(get_cmdline)"
-	# TESTING embedded initramfs to kernel
-
-	# TESTING
-	#try efibootmgr --verbose \
-	#--create \
-	#--disk "$gptdev" \
-	#--part "$efipartnum" \
-	#--label "Gentoo" \
-	#--loader "\EFI\Gentoo\bzImage.efi" \
-	#--unicode "initrd=\EFI\Gentoo\initramfs.img $(get_cmdline)"
+	--unicode "initrd=\EFI\Gentoo\initramfs.img $(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
 	cat > "/efi/efibootmgr_add_entry.sh" <<'EOF'
@@ -359,10 +357,10 @@ EOF
 	fi # This ends the SWAP UUID
 
 	# Generate initramfs with ugRD
-	#try ugrd --kver "$kver" /efi/initramfs.img
+	try ugrd --kver "$kver" /efi/initramfs.img
 
 	# TESTING embedded initramfs to kernel
-	try ugrd --kver "$kver" --root /usr/src/initramfs
+	# try ugrd --kver "$kver" --root /usr/src/initramfs
 	# TESTING embedded initramfs to kernel
 
 	# Alternatively, use command-line options (less recommended):
