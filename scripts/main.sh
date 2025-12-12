@@ -239,21 +239,28 @@ function install_kernel_efi() {
 	sys_efipart="/sys/class/block/$(basename "$efipartdev")" \
 		|| die "Could not construct /sys path to EFI partition"
 
-	# Extract partition number, handling both standard and RAID cases
+	# Extract partition number and parent device robustly
 	local efipartnum
-	if [[ -e "$sys_efipart/partition" ]]; then
-		efipartnum="$(cat "$sys_efipart/partition")" \
-			|| die "Failed to find partition number for EFI partition $efipartdev"
-	else
-		efipartnum="1" # Assume partition 1 if not found, common for RAID-based EFI
-		einfo "Assuming partition 1 for RAID-based EFI on device $efipartdev"
+	# Try lsblk to get partition number
+	efipartnum="$(lsblk -no PARTNUM "$efipartdev" 2>/dev/null || true)"
+	if [[ -z "$efipartnum" ]]; then
+		# Fallback: extract trailing number from device name (handles /dev/sda1 and /dev/nvme0n1p1)
+		efipartnum="$(basename "$efipartdev" | sed -E 's/.*p?([0-9]+)$/\1/')"
 	fi
-
+	einfo "Using EFI partition number $efipartnum for device $efipartdev"
+	
 	# Identify the parent block device and create EFI boot entry
 	local gptdev
-		# Non-RAID case: Create a single EFI boot entry
-	gptdev="/dev/$(basename "$(readlink -f "$sys_efipart/..")")" \
-		|| die "Failed to find parent device for EFI partition $efipartdev"
+	# Prefer lsblk PKNAME (parent device name)
+	local parent
+	parent="$(lsblk -no PKNAME "$efipartdev" 2>/dev/null || true)"
+	if [[ -n "$parent" ]]; then
+		gptdev="/dev/$parent"
+	else
+		# Fallback to resolving from sysfs
+		gptdev="/dev/$(basename "$(readlink -f "$sys_efipart/..")")" \
+			|| die "Failed to find parent device for EFI partition $efipartdev"
+	fi
 	if [[ ! -e "$gptdev" ]] || [[ -z "$gptdev" ]]; then
 		gptdev="$(resolve_device_by_id "${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}")" \
 			|| die "Could not resolve device with id=${DISK_ID_PART_TO_GPT_ID[$DISK_ID_EFI]}"
@@ -261,28 +268,22 @@ function install_kernel_efi() {
 
 	# TESTING
 	try mkdir -p /efi/EFI/Gentoo
+	sleep 5
 	try cp "/boot/$kernel_file" "/efi/EFI/Gentoo/bzImage.efi"
 	try cp /efi/initramfs.img /efi/EFI/Gentoo/initramfs.img
+	sleep 5
 	# TESTING
 
-	# TESTING embedded initramfs to kernel
-	# try efibootmgr --verbose \
-	# --create \
-	# --disk "$gptdev" \
-	# --part "$efipartnum" \
-	# --label "Gentoo" \
-	# --loader "\EFI\Gentoo\bzImage.efi" \
-	# --unicode "$(get_cmdline)"
-	# TESTING embedded initramfs to kernel
-
 	# TESTING
+	loader="\\EFI\\Gentoo\\bzImage.efi"
+
 	try efibootmgr --verbose \
 	--create \
 	--disk "$gptdev" \
 	--part "$efipartnum" \
 	--label "Gentoo" \
-	--loader "\EFI\Gentoo\bzImage.efi" \
-	--unicode "initrd=\EFI\Gentoo\initramfs.img $(get_cmdline)"
+	--loader "$loader" \
+	--unicode "$(get_cmdline)"
 
 	# Create script to repeat adding efibootmgr entry
 	cat > "/efi/efibootmgr_add_entry.sh" <<'EOF'
@@ -290,12 +291,12 @@ function install_kernel_efi() {
 # Regenerate EFISTUB boot entry.
 
 efibootmgr --verbose \\
-  --create \\
-  --disk "$gptdev" \\
-  --part "$efipartnum" \\
-  --label "Gentoo" \\
-  --loader '\\vmlinuz.efi' \\
-  --unicode "initrd=\\$initramfs_name $(get_cmdline)"
+	--create \\
+	--disk "$gptdev" \\
+	--part "$efipartnum" \\
+	--label "Gentoo" \\
+	--loader "$loader" \\
+	--unicode "$(get_cmdline)"
 EOF
 }
 
@@ -391,30 +392,37 @@ EOF
 }
 
 function get_cmdline() {
-    # get disk underlying ID (your existing mapping)
+	# get disk underlying ID (your existing mapping)
 	local root_id="$DISK_ID_ROOT"
-    root_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_id]}"
+	root_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$root_id]}"
 	local swap_id="$DISK_ID_SWAP"
-    root_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$swap_id]}"
-    local root_uuid
-    root_uuid="$(get_blkid_uuid_for_id "$root_id")" || die "Could not get root UUID"
+	swap_id="${DISK_ID_LUKS_TO_UNDERLYING_ID[$swap_id]}"
+	local root_uuid
+	root_uuid="$(get_blkid_uuid_for_id "$root_id")" || die "Could not get root UUID"
 	local swap_uuid
-	swap_uuid="$(get_blkid_uuid_for_id "$swap_id")" || die "Could not get root UUID"
+	swap_uuid="$(get_blkid_uuid_for_id "$swap_id")" || die "Could not get swap UUID"
 
-    local cmdline=(
-        #"rd.vconsole.keymap=${KEYMAP_INITRAMFS:-us}"
-        # Let initramfs/ugRD know which LUKS to unlock and mapping name used in ugrd config
+	# NOTE: UEFI expects backslashes in paths (e.g. \EFI\...), but the shell will consume backslashes.
+	# Use doubled backslashes here so that efibootmgr receives single backslashes in the UEFI option string.
+	local initramfs="\\EFI\\Gentoo\\initramfs.img"
+
+	# Build cmdline as separate tokens to avoid concatenating different parameters into a single token.
+	# This prevents rd.luks.uuid and rd.luks.name from being merged and ensures correct parsing by the initramfs.
+	local cmdline=(
+		"initrd=${initramfs}"
 		"root=LABEL=root"
 		"rootflags=subvol=root"
-		"rd.luks.uuid=$root_uuid rd.luks.name=$root_uuid=cryptroot"
+		"rd.luks.uuid=${root_uuid}"
+		"rd.luks.name=${root_uuid}=cryptroot"
 		"rd.luks.key=/efi/cryptroot_key.luks.gpg"
-        "rd.luks.allow-discards"
-		"rd.luks.uuid=$swap_uuid rd.luks.name=$swap_uuid=cryptswap"
+		"rd.luks.allow-discards"
+		"rd.luks.uuid=${swap_uuid}"
+		"rd.luks.name=${swap_uuid}=cryptswap"
 		"rd.luks.key=/efi/cryptswap_key.luks.gpg"
-    )
+	)
 
-    # join with spaces (no newline)
-    echo -n "${cmdline[*]}"
+	# join with spaces (no newline) — this yields a single string suitable for efibootmgr --unicode
+	echo -n "${cmdline[*]}"
 }
 
 function generate_fstab() {
